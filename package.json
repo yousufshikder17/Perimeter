@@ -1,0 +1,41 @@
+{
+  "name": "perimeter-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Perimeter — application-aware adversarial resilience testing for multi-tenant SaaS.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.33.4",
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean && rimraf \"packages/*/dist\" \"apps/*/dist\"",
+    "typecheck": "tsc --build --dry",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:safety": "vitest run --project safety",
+    "lint": "eslint .",
+    "lint:probes": "node packages/cli/dist/bin.js probe lint packages/probes-standard/src",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "cli": "pnpm --filter @perimeter/cli exec perimeter"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.9.0",
+    "@perimeter/core": "workspace:*",
+    "@perimeter/sdk": "workspace:*",
+    "@types/node": "^20.14.0",
+    "eslint": "^9.9.0",
+    "prettier": "^3.3.3",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^2.0.5"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ]
+}

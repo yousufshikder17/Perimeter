@@ -1,0 +1,17 @@
+{
+  "$comment": "Lint-only project: a superset of the build that also covers test files, the probe template, and root config files, so typescript-eslint's type-aware rules can find every .ts the linter visits. Non-composite + noEmit — it never builds anything.",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "noEmit": true
+  },
+  "include": [
+    "packages/*/src/**/*",
+    "packages/cli/templates/**/*",
+    "apps/*/src/**/*",
+    "tests/**/*",
+    "*.ts"
+  ]
+}

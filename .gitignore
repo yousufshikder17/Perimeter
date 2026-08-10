@@ -1,0 +1,25 @@
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+.turbo/
+.DS_Store
+
+# Perimeter scan artifacts (never commit evidence / audit logs)
+*.perimeter/
+audit-*.ndjson
+findings.json
+report.md
+report.sarif
+report.junit.xml
+evidence/
+
+# Secrets — Target Model credentials are env-only; never commit env files
+.env
+.env.*
+!.env.example
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
