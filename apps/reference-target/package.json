@@ -1,0 +1,17 @@
+{
+  "name": "@perimeter/reference-target",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A deliberately-vulnerable multi-tenant SaaS (Hono + Postgres RLS) used for end-to-end probe tests and the safety-invariant suite (spec §9). NEVER deploy this.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --build",
+    "start": "node dist/server.js",
+    "dev": "node --watch --loader tsx dist/server.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.12.0",
+    "hono": "^4.5.0"
+  }
+}
