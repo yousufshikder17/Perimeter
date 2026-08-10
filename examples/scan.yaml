@@ -1,0 +1,33 @@
+# Example scan config (spec §4, §8). `perimeter scan --config examples/scan.yaml`.
+target: examples/target.yaml
+
+# Deterministic seed — omit to have the engine generate & record one.
+seed: reference-scan-001
+
+# Empty include = all applicable probes; families/ids may be listed to narrow.
+include: []
+exclude: []
+
+# Extra probe packages/dirs beyond the standard library (spec §3.1).
+probePaths: []
+
+concurrency: 2
+maxTotalRequests: 500
+maxWallClockSeconds: 300
+
+# Writes require --allow-mutating AND an authorization opt-in (spec §3.1).
+allowMutating: false
+allowTimeBased: false
+
+output:
+  json: findings.json
+  markdown: report.md
+  sarif: report.sarif
+  junit: report.junit.xml
+  auditLog: audit.ndjson
+
+# Accepted/known findings to suppress from the gate (spec §8.6).
+baseline: examples/baseline.json
+
+# Fail CI on findings at or above this severity.
+failOn: HIGH

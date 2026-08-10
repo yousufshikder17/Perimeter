@@ -1,0 +1,4 @@
+{
+  "$comment": "Fingerprints of findings the team has reviewed and accepted (spec §8.6). Suppressed from the CI gate but still reported. Generate with: perimeter report findings.json --format json | jq.",
+  "acceptedFingerprints": []
+}

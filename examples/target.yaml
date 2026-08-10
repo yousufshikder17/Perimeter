@@ -1,0 +1,54 @@
+# Example Target Model (spec §5). Points at the in-repo reference target.
+# Secrets are NEVER inline — only env refs (spec §5.1).
+name: reference-saas
+baseUrl: http://localhost:8080
+
+auth:
+  scheme: bearer
+  tokenEndpoint: /auth/login
+
+identities:
+  - ref: tenantA.admin
+    tenant: tenant-a
+    role: admin
+    credentials: { env: PERIMETER_TENANT_A_ADMIN }
+  - ref: tenantA.user
+    tenant: tenant-a
+    role: member
+    credentials: { env: PERIMETER_TENANT_A_USER }
+  - ref: tenantB.user
+    tenant: tenant-b
+    role: member
+    credentials: { env: PERIMETER_TENANT_B_USER }
+
+tenancy:
+  model: shared_db_rls
+  discriminator:
+    location: jwt_claim
+    name: tenant_id
+  tenants: [tenant-a, tenant-b]
+
+endpoints:
+  - id: getInvoice
+    method: GET
+    path: /api/invoices/{invoiceId}
+    tenantScoped: true
+    objectRef: { param: invoiceId, kind: invoice, ownership: tenant }
+    auth: required
+  - id: createInvoice
+    method: POST
+    path: /api/invoices
+    creates: invoice
+    auth: required
+  - id: login
+    method: POST
+    path: /auth/login
+    rateSensitive: true
+    injectable: [email, password]
+    auth: none
+
+authorization:
+  iAmAuthorizedToTest: true
+  environment: staging
+  contact: secops@example.com
+  rateLimit: { globalRps: 5, perHostRps: 5, burst: 10 }
