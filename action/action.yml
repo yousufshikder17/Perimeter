@@ -1,0 +1,68 @@
+name: "Perimeter Scan"
+description: "Run a safe, rate-limited, audited adversarial scan against a deployed multi-tenant target and gate the build (spec §8.6)."
+author: "The Perimeter Authors"
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  config:
+    description: "Path to the scan config (YAML)."
+    required: true
+    default: "perimeter.scan.yaml"
+  fail-on:
+    description: "Gate severity: CRITICAL|HIGH|MEDIUM|LOW|INFO|none."
+    required: false
+    default: "HIGH"
+  seed:
+    description: "Deterministic seed for reproducibility."
+    required: false
+  upload-sarif:
+    description: "Upload SARIF to GitHub code scanning for inline PR annotations."
+    required: false
+    default: "true"
+  version:
+    description: "@perimeter/cli version to run via npx."
+    required: false
+    default: "latest"
+
+outputs:
+  findings:
+    description: "Path to the findings.json artifact."
+    value: ${{ steps.scan.outputs.findings }}
+  sarif:
+    description: "Path to the SARIF artifact."
+    value: ${{ steps.scan.outputs.sarif }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run Perimeter scan
+      id: scan
+      shell: bash
+      run: |
+        set -euo pipefail
+        ARGS=(scan --config "${{ inputs.config }}" --fail-on "${{ inputs.fail-on }}")
+        if [ -n "${{ inputs.seed }}" ]; then ARGS+=(--seed "${{ inputs.seed }}"); fi
+        # The scan writes findings.json / report.md / report.sarif per its config.
+        npx --yes @perimeter/cli@${{ inputs.version }} "${ARGS[@]}"
+        echo "findings=findings.json" >> "$GITHUB_OUTPUT"
+        echo "sarif=report.sarif" >> "$GITHUB_OUTPUT"
+
+    - name: Upload SARIF
+      if: ${{ inputs.upload-sarif == 'true' && always() }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: report.sarif
+
+    - name: Upload report artifacts
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: perimeter-report
+        path: |
+          report.md
+          findings.json
+          report.sarif
+          audit.ndjson
+        if-no-files-found: warn
