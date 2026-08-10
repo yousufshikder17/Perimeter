@@ -1,0 +1,26 @@
+{
+  "name": "@perimeter/probes-standard",
+  "version": "0.1.0",
+  "description": "Perimeter standard probe library — tenant isolation, IDOR, injection, auth boundary, and rate limit families (spec §3.3). Authored as plugins on @perimeter/sdk, not engine specials.",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@perimeter/sdk": "workspace:*",
+    "ulid": "^2.3.0"
+  },
+  "devDependencies": {
+    "@perimeter/core": "workspace:*"
+  }
+}
