@@ -104,5 +104,6 @@ baseline diffing so accepted findings don't break the build. See
 ## Internal development
 
 Probe implementation guidance is maintained in the
-[Probe Authoring Guide](./docs/authoring/README.md). This repository is private
-and proprietary; no license is granted for redistribution.
+[Probe Authoring Guide](./docs/authoring/README.md). This repository is publicly
+viewable for evaluation and portfolio purposes. No license is granted for
+redistribution or derivative works.
