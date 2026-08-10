@@ -1,0 +1,24 @@
+{
+  "name": "@perimeter/cli",
+  "version": "0.1.0",
+  "description": "Perimeter CLI — scan / model / probe / report. One-command onboarding via npx perimeter (spec §9).",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "bin": {
+    "perimeter": "./dist/bin.js"
+  },
+  "files": ["dist", "templates", "README.md"],
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@perimeter/core": "workspace:*",
+    "@perimeter/probe-linter": "workspace:*",
+    "@perimeter/probes-standard": "workspace:*",
+    "@perimeter/sdk": "workspace:*",
+    "clipanion": "^4.0.0-rc.4",
+    "yaml": "^2.5.0"
+  }
+}
