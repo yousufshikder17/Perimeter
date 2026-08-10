@@ -1,0 +1,22 @@
+{
+  "name": "@perimeter/probe-linter",
+  "version": "0.1.0",
+  "description": "Perimeter probe linter — statically enforces the §3.2 safety contract: no raw egress, manifest completeness, evidence-on-finding, deterministic RNG usage.",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@perimeter/sdk": "workspace:*"
+  }
+}
