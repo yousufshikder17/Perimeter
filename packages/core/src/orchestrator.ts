@@ -48,6 +48,10 @@ export class Orchestrator {
     const scanId = ulid();
     const seed = this.#config.seed ?? randomBytes(8).toString("hex");
     const startedAt = new Date().toISOString();
+    const timeoutSignal = AbortSignal.timeout(this.#config.maxWallClockSeconds * 1000);
+    const signal = this.#opts.signal
+      ? AbortSignal.any([this.#opts.signal, timeoutSignal])
+      : timeoutSignal;
 
     const target = await loadTargetModel(this.#config.target);
 
@@ -84,7 +88,7 @@ export class Orchestrator {
       audit,
       scanId,
       resolveIdentity: (ref) => identities.get(ref),
-      signal: this.#opts.signal ?? new AbortController().signal,
+      signal,
     });
     const fixtures = new FixtureManager(target, setupHttp, { logger, ids: scratchIds });
     const registry = new FindingRegistryImpl(this.#opts.baseline);
@@ -113,7 +117,7 @@ export class Orchestrator {
       globalBudget,
       concurrency: this.#config.concurrency,
       allowMutating: this.#config.allowMutating,
-      signal: this.#opts.signal ?? new AbortController().signal,
+      signal,
     });
 
     try {
@@ -121,6 +125,7 @@ export class Orchestrator {
     } finally {
       await fixtures.teardownAll();
     }
+    signal.throwIfAborted();
 
     const finishedAt = new Date().toISOString();
     return registry.export({
