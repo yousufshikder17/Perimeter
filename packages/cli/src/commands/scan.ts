@@ -8,7 +8,7 @@ import {
   MarkdownReporter,
   SarifReporter,
   JUnitReporter,
-  type Baseline,
+  loadBaseline,
 } from "@perimeter/core";
 import type { FindingRegistry, Severity } from "@perimeter/sdk";
 import { loadProbes } from "../probe-loader.js";
@@ -27,10 +27,17 @@ export class ScanCommand extends Command {
     examples: [["Scan a staging target", "perimeter scan --config target.yaml"]],
   });
 
-  config = Option.String("--config", { required: true, description: "Path to the scan config (YAML/JSON)." });
-  failOn = Option.String("--fail-on", { description: "Gate severity: CRITICAL|HIGH|MEDIUM|LOW|INFO|none." });
+  config = Option.String("--config", {
+    required: true,
+    description: "Path to the scan config (YAML/JSON).",
+  });
+  failOn = Option.String("--fail-on", {
+    description: "Gate severity: CRITICAL|HIGH|MEDIUM|LOW|INFO|none.",
+  });
   seed = Option.String("--seed", { description: "Deterministic seed (overrides config)." });
-  allowMutating = Option.Boolean("--allow-mutating", false, { description: "Permit idempotent-write/mutating probes (default off)." });
+  allowMutating = Option.Boolean("--allow-mutating", false, {
+    description: "Permit idempotent-write/mutating probes (default off).",
+  });
 
   async execute(): Promise<number> {
     const raw = parseYaml(await readFile(this.config, "utf8")) as Record<string, unknown>;
@@ -42,7 +49,7 @@ export class ScanCommand extends Command {
     });
 
     const probes = await loadProbes(config.probePaths);
-    const baseline = await loadBaseline(config.baseline);
+    const baseline = config.baseline ? await loadBaseline(config.baseline) : undefined;
 
     const registry = await new Orchestrator(config, probes, baseline ? { baseline } : {}).run();
     await this.#writeReports(config, registry);
@@ -52,11 +59,16 @@ export class ScanCommand extends Command {
       this.context.stderr.write(`\n✗ gate failed: ${gate.reason}\n`);
       return 1;
     }
-    this.context.stdout.write(`\n✓ scan complete — ${registry.findings.length} finding(s), gate passed\n`);
+    this.context.stdout.write(
+      `\n✓ scan complete — ${registry.findings.length} finding(s), gate passed\n`,
+    );
     return 0;
   }
 
-  async #writeReports(config: { output: NonNullable<ReturnType<typeof parseScanConfig>["output"]> }, registry: FindingRegistry): Promise<void> {
+  async #writeReports(
+    config: { output: NonNullable<ReturnType<typeof parseScanConfig>["output"]> },
+    registry: FindingRegistry,
+  ): Promise<void> {
     const { output } = config;
     await writeFile(output.json, new JsonReporter().render(registry));
     await writeFile(output.markdown, new MarkdownReporter().render(registry));
@@ -66,23 +78,24 @@ export class ScanCommand extends Command {
   }
 }
 
-const SEVERITY_RANK: Record<Severity, number> = { CRITICAL: 5, HIGH: 4, MEDIUM: 3, LOW: 2, INFO: 1 };
+const SEVERITY_RANK: Record<Severity, number> = {
+  CRITICAL: 5,
+  HIGH: 4,
+  MEDIUM: 3,
+  LOW: 2,
+  INFO: 1,
+};
 
-function decideGate(registry: FindingRegistry, failOn: Severity | "none"): { failed: boolean; reason: string } {
+function decideGate(
+  registry: FindingRegistry,
+  failOn: Severity | "none",
+): { failed: boolean; reason: string } {
   if (failOn === "none") return { failed: false, reason: "gating disabled" };
   const threshold = SEVERITY_RANK[failOn];
-  const gating = registry.findings.filter((f) => f.status === "open" && SEVERITY_RANK[f.severity] >= threshold);
+  const gating = registry.findings.filter(
+    (f) => f.status === "open" && SEVERITY_RANK[f.severity] >= threshold,
+  );
   return gating.length
     ? { failed: true, reason: `${gating.length} open finding(s) at ≥${failOn}` }
     : { failed: false, reason: "no gating findings" };
-}
-
-async function loadBaseline(path: string | undefined): Promise<Baseline | undefined> {
-  if (!path) return undefined;
-  try {
-    const data = JSON.parse(await readFile(path, "utf8")) as { acceptedFingerprints?: string[] };
-    return { acceptedFingerprints: new Set(data.acceptedFingerprints ?? []) };
-  } catch {
-    return { acceptedFingerprints: new Set() };
-  }
 }

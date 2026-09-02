@@ -43,6 +43,13 @@ export { discoverFromOpenApi, type DiscoveryResult } from "./target/discovery/op
 
 // Findings
 export { FindingRegistryImpl, type Baseline } from "./findings/registry.js";
+export {
+  BASELINE_SCHEMA_VERSION,
+  BaselineFileSchema,
+  createBaselineFile,
+  loadBaseline,
+  type BaselineFile,
+} from "./findings/baseline.js";
 export { computeFingerprint } from "./findings/fingerprint.js";
 
 // Reporters

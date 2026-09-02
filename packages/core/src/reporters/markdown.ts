@@ -44,10 +44,13 @@ export class MarkdownReporter implements Reporter {
   #rollup(findings: readonly Finding[]): string {
     const counts: Record<Severity, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
     for (const f of findings) if (f.status === "open") counts[f.severity]++;
+    const accepted = findings.filter((finding) => finding.status === "accepted").length;
     return [
       "| Severity | Count |",
       "|---|---|",
       ...(Object.keys(counts) as Severity[]).map((s) => `| ${s} | ${counts[s]} |`),
+      "",
+      `Accepted by baseline: ${accepted}`,
     ].join("\n");
   }
 

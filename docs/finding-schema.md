@@ -55,3 +55,16 @@ rather than silent absence.
 
 All output formats are open — no lock-in (spec §7.2). Compliance-mapped packs
 (SOC 2 / ASVS / API Top 10) are premium.
+
+## Baselines
+
+A baseline is a versioned JSON document containing the reviewed finding
+fingerprints for one target. Generate it from a full JSON scan artifact with an
+explicit acknowledgement:
+
+```bash
+perimeter baseline create findings.json --out perimeter-baseline.json --accept-current
+```
+
+Baseline files are validated strictly and never overwritten by this command.
+Accepted findings remain visible in reports but do not fail the severity gate.

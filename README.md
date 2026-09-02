@@ -101,6 +101,15 @@ Applies a severity gate, uploads SARIF for inline PR annotations, and supports
 baseline diffing so accepted findings don't break the build. See
 [`action/README.md`](./action/README.md).
 
+Create a baseline only after reviewing the full JSON scan artifact:
+
+```bash
+perimeter baseline create findings.json --out perimeter-baseline.json --accept-current
+```
+
+Set `baseline: perimeter-baseline.json` in the scan config. Invalid or missing
+baseline files fail the scan instead of silently disabling suppression.
+
 ## Internal development
 
 Probe implementation guidance is maintained in the

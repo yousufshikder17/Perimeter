@@ -3,6 +3,7 @@ import { ScanCommand } from "./commands/scan.js";
 import { ModelValidateCommand, ModelDiscoverCommand } from "./commands/model.js";
 import { ProbeNewCommand, ProbeLintCommand } from "./commands/probe.js";
 import { ReportCommand } from "./commands/report.js";
+import { BaselineCreateCommand } from "./commands/baseline.js";
 
 /** Build the Perimeter CLI (spec §9: scan / model / probe new / report). */
 export function buildCli(): Cli {
@@ -17,6 +18,7 @@ export function buildCli(): Cli {
   cli.register(ProbeNewCommand);
   cli.register(ProbeLintCommand);
   cli.register(ReportCommand);
+  cli.register(BaselineCreateCommand);
   cli.register(Builtins.HelpCommand);
   cli.register(Builtins.VersionCommand);
   return cli;
