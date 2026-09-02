@@ -28,6 +28,7 @@ export interface EngineDeps {
   fixtures: FixtureManager;
   registry: FindingRegistryImpl;
   limiter: RateLimiter;
+  globalBudget: MutableBudget;
   concurrency: number;
   allowMutating: boolean;
   signal: AbortSignal;
@@ -122,7 +123,7 @@ export class ExecutionEngine {
   }
 
   #buildContext(probe: Probe): ProbeContext {
-    const budget = new MutableBudget(probe.manifest.safety.maxRequests);
+    const budget = new MutableBudget(probe.manifest.safety.maxRequests, this.#d.globalBudget);
     const guard = new SafetyGuard({
       allowedHosts: new Set([new URL(this.#d.target.baseUrl).host]),
       allowMutating: this.#d.allowMutating,

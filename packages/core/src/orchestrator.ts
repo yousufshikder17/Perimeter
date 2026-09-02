@@ -59,6 +59,7 @@ export class Orchestrator {
     const limiter = new RateLimiter(rateLimit, clock);
     const audit = new NdjsonAuditLog(this.#config.output.auditLog);
     const identities = new IdentityManager(target);
+    const globalBudget = new MutableBudget(this.#config.maxTotalRequests);
 
     // FixtureManager needs a guarded client for setup. This client is the engine's
     // sanctioned write path (spec §4.3): it may POST to declared `creates:` factory
@@ -79,7 +80,7 @@ export class Orchestrator {
         allowScratchWrites: true,
       }),
       limiter,
-      budget: new MutableBudget(this.#config.maxTotalRequests),
+      budget: globalBudget,
       audit,
       scanId,
       resolveIdentity: (ref) => identities.get(ref),
@@ -109,6 +110,7 @@ export class Orchestrator {
       fixtures,
       registry,
       limiter,
+      globalBudget,
       concurrency: this.#config.concurrency,
       allowMutating: this.#config.allowMutating,
       signal: this.#opts.signal ?? new AbortController().signal,
