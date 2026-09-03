@@ -6,6 +6,7 @@ import {
   parseScanConfig,
   JsonReporter,
   MarkdownReporter,
+  HtmlReporter,
   SarifReporter,
   JUnitReporter,
   loadBaseline,
@@ -72,6 +73,7 @@ export class ScanCommand extends Command {
     const { output } = config;
     await writeFile(output.json, new JsonReporter().render(registry));
     await writeFile(output.markdown, new MarkdownReporter().render(registry));
+    if (output.html) await writeFile(output.html, new HtmlReporter().render(registry));
     if (output.sarif) await writeFile(output.sarif, new SarifReporter().render(registry));
     if (output.junit) await writeFile(output.junit, new JUnitReporter().render(registry));
     this.context.stdout.write(`report → ${output.markdown}, findings → ${output.json}\n`);

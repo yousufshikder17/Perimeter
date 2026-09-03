@@ -1,7 +1,13 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { Command, Option } from "clipanion";
 import { FindingRegistrySchema } from "@perimeter/sdk";
-import { MarkdownReporter, SarifReporter, JUnitReporter, JsonReporter } from "@perimeter/core";
+import {
+  MarkdownReporter,
+  HtmlReporter,
+  SarifReporter,
+  JUnitReporter,
+  JsonReporter,
+} from "@perimeter/core";
 
 /**
  * `perimeter report <findings.json> --format <fmt>` (spec §6.5). Re-renders a
@@ -10,16 +16,21 @@ import { MarkdownReporter, SarifReporter, JUnitReporter, JsonReporter } from "@p
  */
 export class ReportCommand extends Command {
   static override paths = [["report"]];
-  static override usage = Command.Usage({ description: "Render a finding registry into another format." });
+  static override usage = Command.Usage({
+    description: "Render a finding registry into another format.",
+  });
 
   input = Option.String({ required: true });
-  format = Option.String("--format", "markdown", { description: "markdown|json|sarif|junit" });
+  format = Option.String("--format", "markdown", {
+    description: "markdown|html|json|sarif|junit",
+  });
   out = Option.String("--out", { description: "Output file (default stdout)." });
 
   async execute(): Promise<number> {
     const registry = FindingRegistrySchema.parse(JSON.parse(await readFile(this.input, "utf8")));
     const reporter = {
       markdown: new MarkdownReporter(),
+      html: new HtmlReporter(),
       json: new JsonReporter(),
       sarif: new SarifReporter(),
       junit: new JUnitReporter(),

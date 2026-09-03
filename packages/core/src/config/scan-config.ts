@@ -32,6 +32,7 @@ export const ScanConfigSchema = z
       .object({
         json: z.string().default("findings.json"),
         markdown: z.string().default("report.md"),
+        html: z.string().optional(),
         sarif: z.string().optional(),
         junit: z.string().optional(),
         auditLog: z.string().default("audit.ndjson"),

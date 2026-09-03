@@ -22,6 +22,7 @@ allowTimeBased: false
 output:
   json: findings.json
   markdown: report.md
+  html: report.html
   sarif: report.sarif
   junit: report.junit.xml
   auditLog: audit.ndjson

@@ -12,5 +12,6 @@ export interface Reporter {
 
 export { JsonReporter } from "./json.js";
 export { MarkdownReporter } from "./markdown.js";
+export { HtmlReporter } from "./html.js";
 export { SarifReporter } from "./sarif.js";
 export { JUnitReporter } from "./junit.js";

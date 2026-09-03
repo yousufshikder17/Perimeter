@@ -50,6 +50,7 @@ rather than silent absence.
 |---|---|
 | **JSON** | Full registry — the machine contract; drives the SARIF exporter. |
 | **Markdown** | The default human report: summary, rollup, per-finding evidence + remediation. |
+| **HTML** | Self-contained, script-free report for local review or artifact hosting. |
 | **SARIF** | GitHub code-scanning / inline PR annotations. |
 | **JUnit** | Generic CI dashboards. |
 
