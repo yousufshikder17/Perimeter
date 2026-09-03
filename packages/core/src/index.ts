@@ -51,6 +51,14 @@ export {
   type BaselineFile,
 } from "./findings/baseline.js";
 export { computeFingerprint } from "./findings/fingerprint.js";
+export {
+  COMPARISON_SCHEMA_VERSION,
+  compareScans,
+  renderComparisonJson,
+  renderComparisonMarkdown,
+  renderComparisonHtml,
+  type ScanComparison,
+} from "./findings/comparison.js";
 
 // Reporters
 export * from "./reporters/index.js";

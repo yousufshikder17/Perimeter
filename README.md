@@ -110,6 +110,12 @@ perimeter baseline create findings.json --out perimeter-baseline.json --accept-c
 Set `baseline: perimeter-baseline.json` in the scan config. Invalid or missing
 baseline files fail the scan instead of silently disabling suppression.
 
+Compare two scan artifacts locally and optionally gate only on regressions:
+
+```bash
+perimeter compare previous.json current.json --format html --out comparison.html --fail-on HIGH
+```
+
 ## Internal development
 
 Probe implementation guidance is maintained in the
