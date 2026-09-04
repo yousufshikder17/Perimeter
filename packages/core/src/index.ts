@@ -45,6 +45,7 @@ export {
   type DraftEndpoint,
 } from "./target/discovery/openapi.js";
 export { discoverFromPostman } from "./target/discovery/postman.js";
+export { discoverFromHar } from "./target/discovery/har.js";
 
 // Findings
 export { FindingRegistryImpl, type Baseline } from "./findings/registry.js";

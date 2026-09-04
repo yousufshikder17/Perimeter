@@ -28,10 +28,11 @@ path_param`) and the tenant list (≥2 for isolation probes).
 ```bash
 perimeter model discover openapi.yaml --out draft.yaml
 perimeter model discover collection.json --from postman --out draft.yaml
+perimeter model discover capture.har --from har --out draft.yaml
 ```
 
-Infers a **draft** inventory from an OpenAPI spec or Postman Collection v2.x
-(HAR next). Ownership
+Infers a **draft** inventory from an OpenAPI spec, Postman Collection v2.x, or
+HAR 1.2 capture. Ownership
 semantics are never guessed silently — inferred `objectRef`/`tenantScoped` come
 out as review notes you confirm before the model is trusted.
 
