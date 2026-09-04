@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { Command, Option } from "clipanion";
 import { stringify as toYaml } from "yaml";
-import { loadTargetModel, discoverFromOpenApi } from "@perimeter/core";
+import { loadTargetModel, discoverFromOpenApi, discoverFromPostman } from "@perimeter/core";
 
 /**
  * `perimeter model validate <file>` and `perimeter model discover <openapi>`
@@ -32,14 +32,21 @@ export class ModelValidateCommand extends Command {
 export class ModelDiscoverCommand extends Command {
   static override paths = [["model", "discover"]];
   static override usage = Command.Usage({
-    description: "Bootstrap a draft endpoint inventory from an OpenAPI spec (spec §5.4).",
+    description: "Bootstrap a draft endpoint inventory from OpenAPI or Postman (spec §5.4).",
   });
 
   spec = Option.String({ required: true });
+  source = Option.String("--from", "openapi", { description: "openapi|postman" });
   out = Option.String("--out", { description: "Write the draft inventory YAML here." });
 
   async execute(): Promise<number> {
-    const result = await discoverFromOpenApi(this.spec);
+    if (this.source !== "openapi" && this.source !== "postman") {
+      this.context.stderr.write(`Unsupported discovery source: ${this.source}\n`);
+      return 1;
+    }
+    const result = await (this.source === "postman"
+      ? discoverFromPostman(this.spec)
+      : discoverFromOpenApi(this.spec));
     const yaml = toYaml({ endpoints: result.endpoints });
     if (this.out) {
       await writeFile(this.out, yaml);

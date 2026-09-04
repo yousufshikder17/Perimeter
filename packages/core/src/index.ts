@@ -39,7 +39,12 @@ export { FixtureManager, type ScratchObject } from "./identity/fixtures.js";
 
 // Target model
 export { loadTargetModel } from "./target/loader.js";
-export { discoverFromOpenApi, type DiscoveryResult } from "./target/discovery/openapi.js";
+export {
+  discoverFromOpenApi,
+  type DiscoveryResult,
+  type DraftEndpoint,
+} from "./target/discovery/openapi.js";
+export { discoverFromPostman } from "./target/discovery/postman.js";
 
 // Findings
 export { FindingRegistryImpl, type Baseline } from "./findings/registry.js";
