@@ -66,7 +66,7 @@ export class Orchestrator {
     const rateLimit = this.#effectiveRateLimit(target.authorization);
     const limiter = new RateLimiter(rateLimit, clock);
     const audit = new NdjsonAuditLog(this.#config.output.auditLog);
-    const identities = new IdentityManager(target, customHook);
+    const identities = new IdentityManager(target, customHook, signal);
     const globalBudget = new MutableBudget(this.#config.maxTotalRequests);
 
     // FixtureManager needs a guarded client for setup. This client is the engine's

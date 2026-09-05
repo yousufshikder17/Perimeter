@@ -47,13 +47,22 @@ export const AuthModelSchema = z
     scheme: AuthScheme,
     tokenEndpoint: z.string().optional(),
     refresh: z
-      .object({ endpoint: z.string(), ttlSeconds: z.number().int().positive() })
+      .object({ endpoint: z.string().optional(), ttlSeconds: z.number().int().positive() })
       .strict()
       .optional(),
     /** Module path to a TS hook returning a credential, for `scheme: custom`. */
     customHook: z.string().optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((auth, ctx) => {
+    if (auth.refresh && auth.scheme !== "custom" && !auth.refresh.endpoint) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "refresh.endpoint is required for non-custom authentication",
+        path: ["refresh", "endpoint"],
+      });
+    }
+  });
 export type AuthModel = z.infer<typeof AuthModelSchema>;
 
 // ---------------------------------------------------------------------------

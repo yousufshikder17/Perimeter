@@ -55,9 +55,36 @@ Missing files and non-function exports fail the scan before fixture setup.
 auth:
   scheme: custom
   customHook: ./credentials.mjs
+  refresh: { ttlSeconds: 300 }
 ```
+
+```js
+// credentials.mjs — return pre-issued credentials from your local secret store.
+const keys = { "tenantA.user": "TENANT_A_TOKEN", "tenantB.user": "TENANT_B_TOKEN" };
+export default async function credentials({ ref }) {
+  const token = process.env[keys[ref]];
+  if (!token) throw new Error("Missing configured credential");
+  return { authorization: `Bearer ${token}` };
+}
+```
+
+Credential headers are cached per identity for `refresh.ttlSeconds` (default:
+3600 seconds). Concurrent requests share one hook call, and expiry invokes the
+hook again, including for retained identity handles. The core does not call
+`refresh.endpoint` for custom hooks. Hook failures are not cached and fail the
+scan; their messages are withheld from reports and logs to avoid leaking secrets.
+Supported header names are `authorization`, `cookie`, `x-api-key`, and
+`x-auth-token` (case-insensitive), all redacted in audit records. Empty values,
+duplicate names, invalid HTTP header values, and other header names are rejected.
+
+Hooks also receive the scan's `signal`. Forward it to asynchronous credential
+work so cancellation can stop that work. The core stops waiting when a scan is
+cancelled; it cannot terminate arbitrary code or resources created by a hook.
 
 Hooks are trusted operator code, like executable Target Models. Importing one
 executes its module after the scan's authorization gate; this is not a sandbox
 for untrusted plugins. Keep secrets in environment variables or a local secret
 store. `model validate` validates the configuration without executing the hook.
+Hook-owned I/O is outside the guarded probe HTTP path; this feature does not
+implement an OAuth/password exchange, a login request contract, or token refresh
+endpoints. Those still require a real target's authentication requirements.

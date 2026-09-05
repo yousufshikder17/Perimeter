@@ -7,6 +7,7 @@ import { DeterministicRng } from "../runtime/rng.js";
 import { GuardedHttpClientImpl } from "../http/guarded-http-client.js";
 import type { AuditSink } from "../audit/audit-log.js";
 import type { IdentityManager } from "../identity/identity-manager.js";
+import { AuthenticationError } from "../identity/identity-manager.js";
 import type { FixtureManager } from "../identity/fixtures.js";
 import type { FindingRegistryImpl } from "../findings/registry.js";
 import type { Logger, Clock, TargetModel } from "@perimeter/sdk";
@@ -51,7 +52,11 @@ export class ExecutionEngine {
     const workers = Array.from({ length: Math.min(this.#d.concurrency, queue.length || 1) }, () =>
       this.#worker(queue),
     );
-    await Promise.all(workers);
+    // Let in-flight siblings settle before teardown when authentication fails.
+    const results = await Promise.allSettled(workers);
+    for (const result of results) {
+      if (result.status === "rejected") throw result.reason;
+    }
   }
 
   /**
@@ -83,6 +88,7 @@ export class ExecutionEngine {
           await this.#d.fixtures.create(kind, ref);
           created++;
         } catch (err) {
+          if (err instanceof AuthenticationError) throw err;
           this.#d.logger.warn("fixture provisioning failed (skipped)", {
             kind,
             identity: ref,
@@ -116,6 +122,7 @@ export class ExecutionEngine {
       log.info("probe running", { steps: plan.steps.length });
       await probe.run(plan, ctx);
     } catch (err) {
+      if (err instanceof AuthenticationError) throw err;
       // A crashing/misbehaving probe cannot corrupt the scan or escape the guard.
       log.error("probe errored", { error: String(err) });
       this.#d.registry.recordSkip(probe.manifest.id, `errored: ${String(err)}`);
