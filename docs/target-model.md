@@ -41,3 +41,23 @@ out as review notes you confirm before the model is trusted.
 ```bash
 perimeter model validate examples/target.yaml
 ```
+
+## Custom credentials
+
+CLI scans load `auth.customHook` when `auth.scheme` is `custom`. The hook is a
+local module with a default-exported function receiving `{ ref, tenant, role }`
+and returning a promise of credential headers. Relative paths resolve against
+the Target Model's directory, regardless of the shell's working directory.
+Use `.mjs` for portable Node support; TypeScript requires runtime loader support.
+Missing files and non-function exports fail the scan before fixture setup.
+
+```yaml
+auth:
+  scheme: custom
+  customHook: ./credentials.mjs
+```
+
+Hooks are trusted operator code, like executable Target Models. Importing one
+executes its module after the scan's authorization gate; this is not a sandbox
+for untrusted plugins. Keep secrets in environment variables or a local secret
+store. `model validate` validates the configuration without executing the hook.

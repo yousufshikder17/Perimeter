@@ -4,6 +4,7 @@ import type { FindingRegistry, Probe } from "@perimeter/sdk";
 import type { ScanConfig } from "./config/scan-config.js";
 import { loadTargetModel } from "./target/loader.js";
 import { IdentityManager } from "./identity/identity-manager.js";
+import { loadAuthHook } from "./identity/auth-hook.js";
 import { FixtureManager } from "./identity/fixtures.js";
 import { FindingRegistryImpl, type Baseline } from "./findings/registry.js";
 import { RateLimiter } from "./safety/rate-limiter.js";
@@ -59,10 +60,13 @@ export class Orchestrator {
     // assertion, and production forces the most conservative rate profile.
     this.#assertAuthorized(target.authorization.environment, logger);
 
+    const customHook = await loadAuthHook(target, this.#config.target);
+    signal.throwIfAborted();
+
     const rateLimit = this.#effectiveRateLimit(target.authorization);
     const limiter = new RateLimiter(rateLimit, clock);
     const audit = new NdjsonAuditLog(this.#config.output.auditLog);
-    const identities = new IdentityManager(target);
+    const identities = new IdentityManager(target, customHook);
     const globalBudget = new MutableBudget(this.#config.maxTotalRequests);
 
     // FixtureManager needs a guarded client for setup. This client is the engine's
