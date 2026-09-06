@@ -42,6 +42,32 @@ out as review notes you confirm before the model is trusted.
 perimeter model validate examples/target.yaml
 ```
 
+## Scratch fixture payloads
+
+Factory endpoints may supply `fixture.body` with the required JSON fields for
+creating a disposable object. Without it, the existing empty-object request is
+used. Authentication still comes from the identity being provisioned.
+
+```yaml
+endpoints:
+  - id: createInvoice
+    method: POST
+    path: /api/invoices
+    creates: invoice
+    fixture:
+      body:
+        amountCents: 100
+        memo: perimeter scratch invoice
+        labels: [security-test]
+```
+
+The body must be a JSON object; nested objects, arrays, numbers, booleans, and
+null are supported. Fixture configuration is accepted only on POST factories
+with `creates`. Requests still pass through the same payload policy, host guard,
+rate limits, request budget, and audit writer. Use non-secret disposable data:
+the body is captured in audit records. There is no template expansion or
+per-identity substitution; tenant ownership should come from authentication.
+
 ## Custom credentials
 
 CLI scans load `auth.customHook` when `auth.scheme` is `custom`. The hook is a

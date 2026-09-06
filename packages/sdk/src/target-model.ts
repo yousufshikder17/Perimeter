@@ -125,6 +125,12 @@ export const ObjectRefSchema = z
   .strict();
 export type ObjectRef = z.infer<typeof ObjectRefSchema>;
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() => z.union([
+  z.string(), z.number().finite(), z.boolean(), z.null(),
+  z.array(JsonValueSchema), z.record(JsonValueSchema),
+]));
+
 export const EndpointSchema = z
   .object({
     id: z.string(),
@@ -136,6 +142,8 @@ export const EndpointSchema = z
     objectRef: ObjectRefSchema.optional(),
     /** Logical kind this endpoint creates → usable as a scratch-fixture factory. */
     creates: z.string().optional(),
+    /** Static, non-secret JSON data used to provision a scratch object. */
+    fixture: z.object({ body: z.record(JsonValueSchema).optional() }).strict().optional(),
     /** Present → rate-limit probe target. */
     rateSensitive: z.boolean().default(false),
     /** Input fields that reach an interpreter → injection probe surface. */
@@ -143,7 +151,16 @@ export const EndpointSchema = z
     /** Whether auth is required to call this endpoint. */
     auth: z.enum(["required", "optional", "none"]).default("required"),
   })
-  .strict();
+  .strict()
+  .superRefine((endpoint, ctx) => {
+    if (endpoint.fixture && (!endpoint.creates?.trim() || endpoint.method !== "POST")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["fixture"],
+        message: "fixture configuration requires a POST endpoint with creates",
+      });
+    }
+  });
 export type Endpoint = z.infer<typeof EndpointSchema>;
 
 // ---------------------------------------------------------------------------

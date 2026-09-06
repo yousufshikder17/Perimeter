@@ -91,7 +91,7 @@ export class FixtureManager {
       url: factory.path,
       as: asIdentity,
       headers: { "content-type": "application/json" },
-      body: "{}",
+      body: JSON.stringify(factory.fixture?.body ?? {}),
     });
     if (res.status < 200 || res.status >= 300) {
       throw new Error(`fixture factory "${factory.id}" returned ${res.status} creating a ${kind}`);
