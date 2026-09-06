@@ -3,6 +3,37 @@ import { parseTargetModel } from "@perimeter/sdk";
 import { loadTargetModel } from "../target/loader.js";
 import { AuthenticationError, IdentityManager } from "./identity-manager.js";
 
+it("rejects missing or blank environment credentials without caching placeholders", async () => {
+  const target = await loadTargetModel("examples/target.yaml");
+  const spec = target.identities[0]!;
+  const key = "PERIMETER_TEST_STATIC_CREDENTIAL";
+  try {
+    for (const scheme of ["bearer", "api_key", "session_cookie", "oauth2_password"] as const) {
+      target.auth = { scheme };
+      spec.credentials = { env: key };
+      const identity = new IdentityManager(target).get(spec.ref);
+      for (const secret of [undefined, "", " \t "]) {
+        vi.stubEnv(key, secret);
+        await expect(identity.headers()).rejects.toThrow(AuthenticationError);
+        await expect(identity.headers()).rejects.toThrow(`set a non-blank ${key}`);
+      }
+      vi.stubEnv(key, "test-credential");
+      expect(await identity.headers()).toEqual(
+        scheme === "api_key" ? { "x-api-key": "test-credential" }
+          : scheme === "session_cookie" ? { cookie: "session=test-credential" }
+            : { authorization: "Bearer test-credential" },
+      );
+      vi.stubEnv(key, undefined);
+      await expect(identity.headers()).rejects.toThrow(AuthenticationError);
+      delete spec.credentials;
+      await expect(new IdentityManager(target).get(spec.ref).headers())
+        .rejects.toThrow("configure credentials.env");
+    }
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});
+
 describe("custom credential lifecycle", () => {
   it("isolates identities, coalesces concurrent mints, and refreshes retained handles", async () => {
     const target = await loadTargetModel("examples/target.yaml");

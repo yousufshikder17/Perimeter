@@ -85,6 +85,11 @@ returned an unusable ID, the scanner cannot track or automatically remove it.
 
 ## Custom credentials
 
+For environment-backed credentials, a missing `credentials.env` reference,
+an unset environment variable, or a blank value fails the scan when that
+identity is used. The error identifies the configuration to fix without
+printing a credential. The engine never substitutes a placeholder token.
+
 CLI scans load `auth.customHook` when `auth.scheme` is `custom`. The hook is a
 local module with a default-exported function receiving `{ ref, tenant, role }`
 and returning a promise of credential headers. Relative paths resolve against

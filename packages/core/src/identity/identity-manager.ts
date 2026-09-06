@@ -85,16 +85,21 @@ export class IdentityManager {
       return { ...await cached.headers };
     }
     const secret = credentialEnv ? process.env[credentialEnv] : undefined;
+    if (!secret?.trim()) {
+      throw new AuthenticationError(
+        `Missing credential for identity "${ref}": ${credentialEnv ? `set a non-blank ${credentialEnv}` : "configure credentials.env"}`,
+      );
+    }
     // TODO(engine): exchange credentials at auth.tokenEndpoint for schemes that
     // need it (oauth2_password, session_cookie). Scaffold returns the header shape.
     switch (scheme) {
       case "bearer":
       case "oauth2_password":
-        return { authorization: `Bearer ${secret ?? "«mint-me»"}` };
+        return { authorization: `Bearer ${secret}` };
       case "api_key":
-        return { "x-api-key": secret ?? "«mint-me»" };
+        return { "x-api-key": secret };
       case "session_cookie":
-        return { cookie: `session=${secret ?? "«mint-me»"}` };
+        return { cookie: `session=${secret}` };
       default:
         return {};
     }
