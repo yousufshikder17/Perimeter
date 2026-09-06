@@ -143,7 +143,11 @@ export const EndpointSchema = z
     /** Logical kind this endpoint creates → usable as a scratch-fixture factory. */
     creates: z.string().optional(),
     /** Static, non-secret JSON data used to provision a scratch object. */
-    fixture: z.object({ body: z.record(JsonValueSchema).optional() }).strict().optional(),
+    fixture: z.object({
+      body: z.record(JsonValueSchema).optional(),
+      /** Exact JSON keys leading to the created object's ID; no heuristic fallback. */
+      responseIdPath: z.array(z.string().min(1)).min(1).optional(),
+    }).strict().optional(),
     /** Present → rate-limit probe target. */
     rateSensitive: z.boolean().default(false),
     /** Input fields that reach an interpreter → injection probe surface. */

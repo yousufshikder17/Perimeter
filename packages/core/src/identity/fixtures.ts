@@ -97,7 +97,7 @@ export class FixtureManager {
       throw new Error(`fixture factory "${factory.id}" returned ${res.status} creating a ${kind}`);
     }
 
-    const id = await this.#extractId(res, kind);
+    const id = await this.#extractId(res, kind, factory.fixture?.responseIdPath);
     const obj: ScratchObject = {
       id,
       kind,
@@ -147,7 +147,25 @@ export class FixtureManager {
   async #extractId(
     res: { json<T = unknown>(): Promise<T>; headers: Record<string, string> },
     kind: string,
+    responseIdPath?: string[],
   ): Promise<string> {
+    if (responseIdPath) {
+      let candidate: unknown;
+      try {
+        candidate = await res.json();
+      } catch {
+        throw new Error(`fixture.responseIdPath for "${kind}" requires a JSON response`);
+      }
+      for (const key of responseIdPath) {
+        candidate = candidate !== null && typeof candidate === "object" && Object.hasOwn(candidate, key)
+          ? (candidate as Record<string, unknown>)[key]
+          : undefined;
+      }
+      if ((typeof candidate === "string" && candidate.trim().length > 0) ||
+          (typeof candidate === "number" && Number.isFinite(candidate))) return String(candidate);
+      // Never guess a different object when the operator supplied an exact mapping.
+      throw new Error(`fixture.responseIdPath for "${kind}" did not resolve to a non-empty string or finite number`);
+    }
     try {
       const body = (await res.json()) as Record<string, unknown>;
       const candidate =

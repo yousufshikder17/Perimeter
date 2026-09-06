@@ -59,6 +59,7 @@ endpoints:
         amountCents: 100
         memo: perimeter scratch invoice
         labels: [security-test]
+      responseIdPath: [data, invoice, uuid]
 ```
 
 The body must be a JSON object; nested objects, arrays, numbers, booleans, and
@@ -67,6 +68,20 @@ with `creates`. Requests still pass through the same payload policy, host guard,
 rate limits, request budget, and audit writer. Use non-secret disposable data:
 the body is captured in audit records. There is no template expansion or
 per-identity substitution; tenant ownership should come from authentication.
+
+For a response such as `{"data":{"invoice":{"uuid":"inv-123"}}}`,
+`fixture.responseIdPath: [data, invoice, uuid]` identifies the created object's
+ID. Segments are literal JSON keys, not dotted paths or expressions; use a
+string index such as `"0"` to traverse an array. The result must be a non-empty
+string or finite number (including zero). This ID is shared with probes and
+used to resolve the modeled DELETE endpoint for cleanup.
+
+An explicit mapping takes precedence over `id`, `<kind>Id`, `data.id`, and
+`Location`. Invalid JSON, a missing path, or an invalid ID fails that fixture's
+provisioning without guessing another object; the engine records the failure
+and dependent probes cannot use that fixture. Without `responseIdPath`, the
+existing ID heuristics remain unchanged. If the server created an object but
+returned an unusable ID, the scanner cannot track or automatically remove it.
 
 ## Custom credentials
 
