@@ -1,5 +1,6 @@
 import type { Identity, IdentityRef, TargetModel, AuthScheme } from "@perimeter/sdk";
 import { validateHeaderValue } from "node:http";
+import type { ExchangeCredential } from "./token-exchange.js";
 
 /**
  * Identity minting (spec §4.3). The engine owns this so probes stay declarative:
@@ -31,11 +32,13 @@ export class IdentityManager {
   readonly #cache = new Map<IdentityRef, Identity>();
   readonly #credentials = new Map<IdentityRef, CachedCredential>();
   readonly #signal: AbortSignal | undefined;
+  readonly #exchange: ExchangeCredential | undefined;
 
-  constructor(target: TargetModel, customHook?: CustomAuthHook, signal?: AbortSignal) {
+  constructor(target: TargetModel, customHook?: CustomAuthHook, signal?: AbortSignal, exchange?: ExchangeCredential) {
     this.#target = target;
     this.#customHook = customHook;
     this.#signal = signal;
+    this.#exchange = exchange;
   }
 
   get(ref: IdentityRef): Identity {
@@ -64,14 +67,18 @@ export class IdentityManager {
     role: string,
     credentialEnv: string | undefined,
   ): Promise<Record<string, string>> {
-    if (scheme === "custom") {
+    if (scheme === "custom" || scheme === "oauth2_password" || this.#target.auth.login) {
       this.#signal?.throwIfAborted();
       let cached = this.#credentials.get(ref);
       if (!cached || cached.expiresAtMs <= Date.now()) {
         const entry: CachedCredential = {
           expiresAtMs: Infinity, // Concurrent callers share the in-flight mint.
-          headers: this.#invokeHook({ ref, tenant, role }).then((headers) => {
-            entry.expiresAtMs = Date.now() + (this.#target.auth.refresh?.ttlSeconds ?? 3600) * 1000;
+          headers: (scheme === "custom"
+            ? this.#invokeHook({ ref, tenant, role }).then((headers) => ({ headers, ttlSeconds: this.#target.auth.refresh?.ttlSeconds ?? 3600 }))
+            : this.#exchange ? this.#exchange(ref, credentialEnv)
+              : Promise.reject(new AuthenticationError("Authentication exchange requires an engine-owned transport")))
+          .then(({ headers, ttlSeconds }) => {
+            entry.expiresAtMs = Date.now() + ttlSeconds * 1000;
             return headers;
           }).catch((error: unknown) => {
             this.#credentials.delete(ref);
@@ -90,11 +97,8 @@ export class IdentityManager {
         `Missing credential for identity "${ref}": ${credentialEnv ? `set a non-blank ${credentialEnv}` : "configure credentials.env"}`,
       );
     }
-    // TODO(engine): exchange credentials at auth.tokenEndpoint for schemes that
-    // need it (oauth2_password, session_cookie). Scaffold returns the header shape.
     switch (scheme) {
       case "bearer":
-      case "oauth2_password":
         return { authorization: `Bearer ${secret}` };
       case "api_key":
         return { "x-api-key": secret };

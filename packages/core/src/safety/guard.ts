@@ -15,6 +15,8 @@ import { inspectOutboundPayload, isReadOnlyMethod } from "./outbound-inspector.j
  */
 
 export interface GuardPolicy {
+  /** Exact POST URLs for the engine-owned authentication client only. */
+  authenticationUrls?: ReadonlySet<string>;
   /** Hosts egress is allowed to reach — the modeled target only (spec §4.2). */
   allowedHosts: ReadonlySet<string>;
   /** Whether the scan authorized writes (requires --allow-mutating + authz opt-in). */
@@ -85,6 +87,7 @@ export class SafetyGuard {
 
   #checkMethod(input: GuardCheckInput): void {
     if (isReadOnlyMethod(input.method)) return;
+    if (input.method === "POST" && this.#policy.authenticationUrls?.has(input.url)) return;
 
     // Sanctioned fixture CREATION: a POST to a declared `creates:` factory path,
     // issued by the engine's fixture-setup client (spec §4.3). The operator opted

@@ -31,6 +31,8 @@ export interface GuardedRequest {
 }
 
 export interface GuardedResponse {
+  /** Uncombined Set-Cookie fields, for engine-owned session authentication. */
+  setCookies?: string[];
   status: number;
   headers: Record<string, string>;
   /** Size-bounded, secret-redacted body (spec §4.1). */

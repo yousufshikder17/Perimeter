@@ -142,6 +142,48 @@ Hooks are trusted operator code, like executable Target Models. Importing one
 executes its module after the scan's authorization gate; this is not a sandbox
 for untrusted plugins. Keep secrets in environment variables or a local secret
 store. `model validate` validates the configuration without executing the hook.
-Hook-owned I/O is outside the guarded probe HTTP path; this feature does not
-implement an OAuth/password exchange, a login request contract, or token refresh
-endpoints. Those still require a real target's authentication requirements.
+Hook-owned I/O is outside the guarded probe HTTP path.
+
+## Built-in authentication exchange
+
+`oauth2_password` now performs the standard form-encoded password grant and
+refresh-token grant rather than treating the environment value as a bearer token.
+Each identity's `credentials.env` names a JSON string containing `username` and
+`password`, with optional `client_id`, `client_secret`, and `scope`. This is the
+legacy password grant for targets that explicitly support it; it is not browser
+OAuth, authorization-code/PKCE, device login, or MFA.
+
+```yaml
+auth:
+  scheme: oauth2_password
+  tokenEndpoint: /oauth/token
+  refresh: { endpoint: /oauth/token, ttlSeconds: 300 }
+```
+
+Responses require `access_token` and Bearer `token_type`; `expires_in` and
+`refresh_token` are optional. Credentials expire at the smaller of the returned
+lifetime and configured TTL (default 3600 seconds). Refresh tokens are isolated
+per identity and rotated when the response supplies a new one. Without a refresh
+token, expiry repeats the password exchange. A failed refresh fails that scan;
+it is never silently accepted or retried with a different identity.
+
+For application-specific session login, configure the body encoding and cookie:
+
+```yaml
+auth:
+  scheme: session_cookie
+  tokenEndpoint: /auth/login
+  login: { format: json, cookieName: session }
+```
+
+The credential environment variable contains a JSON object of string fields sent
+verbatim as JSON (or `format: form`). A single matching Set-Cookie is required.
+Expiry uses Max-Age/Expires and the configured TTL; renewal repeats login. With
+no `tokenEndpoint`/`login`, session_cookie still uses its pre-issued env value.
+
+Authentication endpoints must be on the target origin. Requests use the shared
+budgets, rate limits, cancellation, and guarded HTTP client. Redirects and non-2xx
+responses fail authentication. Request/response bodies are fully redacted from
+authentication audit entries; returned tokens/cookies are redacted from ordinary
+request headers. Non-sensitive audit metadata remains available. The engine
+supports the [OAuth password and refresh contracts](https://www.rfc-editor.org/rfc/rfc6749.html#section-4.3).

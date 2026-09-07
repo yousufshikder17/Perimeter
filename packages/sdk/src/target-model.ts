@@ -46,6 +46,11 @@ export const AuthModelSchema = z
   .object({
     scheme: AuthScheme,
     tokenEndpoint: z.string().optional(),
+    /** Explicit contract for a session-cookie login; credentials.env contains JSON fields. */
+    login: z.object({
+      format: z.enum(["json", "form"]),
+      cookieName: z.string().regex(/^[A-Za-z0-9_-]+$/),
+    }).strict().optional(),
     refresh: z
       .object({ endpoint: z.string().optional(), ttlSeconds: z.number().int().positive() })
       .strict()
@@ -55,6 +60,13 @@ export const AuthModelSchema = z
   })
   .strict()
   .superRefine((auth, ctx) => {
+    if (auth.scheme === "oauth2_password" && !auth.tokenEndpoint) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["tokenEndpoint"], message: "OAuth password exchange requires tokenEndpoint" });
+    }
+    if ((auth.login && (auth.scheme !== "session_cookie" || !auth.tokenEndpoint)) ||
+        (auth.scheme === "session_cookie" && auth.tokenEndpoint && !auth.login)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["login"], message: "session login requires scheme session_cookie, tokenEndpoint, and login format/cookieName" });
+    }
     if (auth.refresh && auth.scheme !== "custom" && !auth.refresh.endpoint) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -211,6 +223,17 @@ export const TargetModelSchema = z
   })
   .strict()
   .superRefine((model, ctx) => {
+    if (model.auth.scheme === "oauth2_password" || model.auth.login) {
+      for (const endpoint of [model.auth.tokenEndpoint, model.auth.refresh?.endpoint]) {
+        if (!endpoint) continue;
+        try {
+          const url = new URL(endpoint, model.baseUrl);
+          if (url.origin !== new URL(model.baseUrl).origin || url.username || url.password || url.hash) throw new Error();
+        } catch {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["auth"], message: "authentication endpoints must stay on the target origin without userinfo or fragments" });
+        }
+      }
+    }
     // Every identity's tenant must be declared in the tenancy block.
     const declared = new Set(model.tenancy.tenants);
     for (const id of model.identities) {

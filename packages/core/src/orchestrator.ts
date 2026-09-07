@@ -5,6 +5,7 @@ import type { ScanConfig } from "./config/scan-config.js";
 import { loadTargetModel } from "./target/loader.js";
 import { IdentityManager } from "./identity/identity-manager.js";
 import { loadAuthHook } from "./identity/auth-hook.js";
+import { createTokenExchange } from "./identity/token-exchange.js";
 import { FixtureManager } from "./identity/fixtures.js";
 import { FindingRegistryImpl, type Baseline } from "./findings/registry.js";
 import { RateLimiter } from "./safety/rate-limiter.js";
@@ -66,8 +67,17 @@ export class Orchestrator {
     const rateLimit = this.#effectiveRateLimit(target.authorization);
     const limiter = new RateLimiter(rateLimit, clock);
     const audit = new NdjsonAuditLog(this.#config.output.auditLog);
-    const identities = new IdentityManager(target, customHook, signal);
     const globalBudget = new MutableBudget(this.#config.maxTotalRequests);
+    const authenticationUrls = new Set([target.auth.tokenEndpoint, target.auth.refresh?.endpoint]
+      .filter((url): url is string => !!url).map((url) => new URL(url, target.baseUrl).href));
+    const authHttp = new GuardedHttpClientImpl({
+      baseUrl: target.baseUrl, probeId: "engine/authentication", probeSafetyClass: "idempotent-write",
+      guard: new SafetyGuard({ allowedHosts: new Set([new URL(target.baseUrl).host]),
+        allowMutating: false, scratchObjectIds: new Set(), authenticationUrls }),
+      limiter, budget: globalBudget, audit, scanId, signal, captureBodies: false,
+      resolveIdentity: () => { throw new Error("Authentication requests cannot recursively resolve an identity"); },
+    });
+    const identities = new IdentityManager(target, customHook, signal, createTokenExchange(target, authHttp));
 
     // FixtureManager needs a guarded client for setup. This client is the engine's
     // sanctioned write path (spec §4.3): it may POST to declared `creates:` factory

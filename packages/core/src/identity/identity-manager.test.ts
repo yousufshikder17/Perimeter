@@ -8,7 +8,7 @@ it("rejects missing or blank environment credentials without caching placeholder
   const spec = target.identities[0]!;
   const key = "PERIMETER_TEST_STATIC_CREDENTIAL";
   try {
-    for (const scheme of ["bearer", "api_key", "session_cookie", "oauth2_password"] as const) {
+    for (const scheme of ["bearer", "api_key", "session_cookie"] as const) {
       target.auth = { scheme };
       spec.credentials = { env: key };
       const identity = new IdentityManager(target).get(spec.ref);

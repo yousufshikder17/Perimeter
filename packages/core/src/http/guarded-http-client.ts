@@ -27,6 +27,8 @@ import { MAX_CAPTURED_BODY_BYTES, redactBody, redactHeaders } from "../audit/red
  * cannot reach the network any other way.
  */
 export interface GuardedHttpClientDeps {
+  /** Authentication exchanges must never persist credential-bearing bodies. */
+  captureBodies?: boolean;
   baseUrl: string;
   probeId: string;
   probeSafetyClass: SafetyClass;
@@ -125,12 +127,12 @@ export class GuardedHttpClientImpl implements GuardedHttpClient {
         method: req.method,
         url,
         headers: redactHeaders(reqHeaders),
-        ...(bodyText !== undefined ? { body: redactBody(bodyText)! } : {}),
+        ...(bodyText !== undefined ? { body: this.#d.captureBodies === false ? "«redacted»" : redactBody(bodyText)! } : {}),
       },
       response: {
         status: res.statusCode,
         headers: redactHeaders(flattenHeaders(res.headers)),
-        body: redactBody(respText.slice(0, MAX_CAPTURED_BODY_BYTES)),
+        body: this.#d.captureBodies === false ? "«redacted»" : redactBody(respText.slice(0, MAX_CAPTURED_BODY_BYTES)),
         elapsedMs,
       },
       ...(req.as ? { issuedAs: req.as } : {}),
@@ -146,6 +148,7 @@ export class GuardedHttpClientImpl implements GuardedHttpClient {
   ): GuardedResponse {
     return {
       status,
+      setCookies: typeof headers["set-cookie"] === "string" ? [headers["set-cookie"]] : headers["set-cookie"] ?? [],
       headers: flattenHeaders(headers),
       elapsedMs,
       exchange,
