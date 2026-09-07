@@ -1,9 +1,9 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { Command, Option } from "clipanion";
-import { parse as parseYaml } from "yaml";
 import {
   Orchestrator,
   parseScanConfig,
+  readConfigFile,
   JsonReporter,
   MarkdownReporter,
   HtmlReporter,
@@ -30,7 +30,7 @@ export class ScanCommand extends Command {
 
   config = Option.String("--config", {
     required: true,
-    description: "Path to the scan config (YAML/JSON).",
+    description: "Path to the scan config (YAML/JSON/TOML).",
   });
   failOn = Option.String("--fail-on", {
     description: "Gate severity: CRITICAL|HIGH|MEDIUM|LOW|INFO|none.",
@@ -41,7 +41,7 @@ export class ScanCommand extends Command {
   });
 
   async execute(): Promise<number> {
-    const raw = parseYaml(await readFile(this.config, "utf8")) as Record<string, unknown>;
+    const raw = parseScanConfig(await readConfigFile(this.config));
     const config = parseScanConfig({
       ...raw,
       ...(this.failOn ? { failOn: this.failOn } : {}),

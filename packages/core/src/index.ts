@@ -15,6 +15,7 @@ export { selectProbes, type Selection } from "./engine/scheduler.js";
 
 // Config
 export { ScanConfigSchema, parseScanConfig, type ScanConfig } from "./config/scan-config.js";
+export { readConfigFile } from "./config/read-file.js";
 
 // Safety
 export { SafetyGuard, SafetyViolation, type GuardPolicy } from "./safety/guard.js";

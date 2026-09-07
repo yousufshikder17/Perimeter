@@ -2,7 +2,18 @@
 
 The Target Model is the differentiator (spec §5): it lets probes reason about
 _tenants, identities, and object ownership_ rather than URLs. It's declarative
-(YAML/JSON/TS), validated by Zod, with optional discovery to bootstrap it.
+(YAML/JSON/TOML/TS), validated by Zod, with optional discovery to bootstrap it.
+
+Both target files and CLI scan configs accept `.toml`. TOML uses the same
+schema, defaults, and authorization requirements as YAML/JSON. For example:
+
+```toml
+target = "examples/target.toml"
+failOn = "HIGH"
+[output]
+json = "findings.json"
+markdown = "report.md"
+```
 
 See [`examples/target.yaml`](../examples/target.yaml) for a complete example.
 
