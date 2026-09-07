@@ -6,6 +6,7 @@ import {
   discoverFromHar,
   discoverFromOpenApi,
   discoverFromPostman,
+  discoverFromCrawl,
 } from "@perimeter/core";
 
 /**
@@ -31,6 +32,32 @@ export class ModelValidateCommand extends Command {
       this.context.stderr.write(`✗ invalid Target Model:\n${String(err)}\n`);
       return 1;
     }
+  }
+}
+
+export class ModelCrawlCommand extends Command {
+  static override paths = [["model", "crawl"]];
+  static override usage = Command.Usage({ description: "Discover a draft GET inventory using an authorized Target Model and identity." });
+
+  target = Option.String({ required: true });
+  as = Option.String("--as", { required: true, description: "Configured identity reference." });
+  start = Option.String("--start", "/");
+  maxPages = Option.String("--max-pages", "50");
+  maxDepth = Option.String("--max-depth", "3");
+  maxSeconds = Option.String("--max-seconds", "120");
+  auditLog = Option.String("--audit-log", "crawl-audit.ndjson");
+  out = Option.String("--out", { description: "Create a draft YAML file (never overwrites)." });
+
+  async execute(): Promise<number> {
+    const result = await discoverFromCrawl(this.target, {
+      as: this.as, start: this.start, maxPages: Number(this.maxPages), maxDepth: Number(this.maxDepth),
+      maxWallClockSeconds: Number(this.maxSeconds), auditLog: this.auditLog,
+    });
+    const yaml = toYaml({ endpoints: result.endpoints });
+    if (this.out) await writeFile(this.out, yaml, { flag: "wx" });
+    else this.context.stdout.write(yaml);
+    this.context.stderr.write("Review required:\n" + result.reviewNotes.map((note) => `  - ${note}\n`).join(""));
+    return 0;
   }
 }
 

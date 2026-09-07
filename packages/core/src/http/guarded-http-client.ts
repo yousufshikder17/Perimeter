@@ -29,6 +29,8 @@ import { MAX_CAPTURED_BODY_BYTES, redactBody, redactHeaders } from "../audit/red
 export interface GuardedHttpClientDeps {
   /** Authentication exchanges must never persist credential-bearing bodies. */
   captureBodies?: boolean;
+  /** Optional hard response-body limit for bounded discovery. */
+  maxResponseBytes?: number;
   baseUrl: string;
   probeId: string;
   probeSafetyClass: SafetyClass;
@@ -47,6 +49,9 @@ export class GuardedHttpClientImpl implements GuardedHttpClient {
   readonly #d: GuardedHttpClientDeps;
 
   constructor(deps: GuardedHttpClientDeps) {
+    if (deps.maxResponseBytes !== undefined && (!Number.isSafeInteger(deps.maxResponseBytes) || deps.maxResponseBytes <= 0)) {
+      throw new Error("maxResponseBytes must be a positive safe integer");
+    }
     this.#d = deps;
   }
 
@@ -91,7 +96,27 @@ export class GuardedHttpClientImpl implements GuardedHttpClient {
       ...(req.body !== undefined ? { body: req.body } : {}),
       signal: this.#d.signal,
     });
-    const respText = await res.body.text();
+    let respText: string;
+    if (this.#d.maxResponseBytes === undefined) {
+      respText = await res.body.text();
+    } else {
+      const chunks: Buffer[] = [];
+      let size = 0;
+      for await (const chunk of res.body) {
+        size += chunk.length;
+        if (size > this.#d.maxResponseBytes) {
+          res.body.destroy();
+          await this.#d.audit.append({
+            scanId: this.#d.scanId, probeId: this.#d.probeId,
+            ...(req.as ? { identityRef: req.as, tenant: this.#d.resolveIdentity(req.as).tenant } : {}),
+            exchange: this.#buildExchange(req, url, outHeaders, bodyText, res, "Response body limit exceeded", Date.now() - startedAt),
+          });
+          throw new Error("Response body limit exceeded");
+        }
+        chunks.push(Buffer.from(chunk));
+      }
+      respText = Buffer.concat(chunks).toString("utf8");
+    }
     const elapsedMs = Date.now() - startedAt;
 
     // (5) record — redacted — to the audit log

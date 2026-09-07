@@ -31,6 +31,8 @@ export interface OrchestratorOptions {
   logger?: Logger;
   baseline?: Baseline;
   signal?: AbortSignal;
+  maxResponseBytes?: number;
+  captureBodies?: boolean;
 }
 
 export class Orchestrator {
@@ -75,6 +77,7 @@ export class Orchestrator {
       guard: new SafetyGuard({ allowedHosts: new Set([new URL(target.baseUrl).host]),
         allowMutating: false, scratchObjectIds: new Set(), authenticationUrls }),
       limiter, budget: globalBudget, audit, scanId, signal, captureBodies: false,
+      ...(this.#opts.maxResponseBytes !== undefined ? { maxResponseBytes: this.#opts.maxResponseBytes } : {}),
       resolveIdentity: () => { throw new Error("Authentication requests cannot recursively resolve an identity"); },
     });
     const identities = new IdentityManager(target, customHook, signal, createTokenExchange(target, authHttp));
@@ -132,6 +135,8 @@ export class Orchestrator {
       concurrency: this.#config.concurrency,
       allowMutating: this.#config.allowMutating,
       signal,
+      ...(this.#opts.maxResponseBytes !== undefined ? { maxResponseBytes: this.#opts.maxResponseBytes } : {}),
+      ...(this.#opts.captureBodies !== undefined ? { captureBodies: this.#opts.captureBodies } : {}),
     });
 
     try {

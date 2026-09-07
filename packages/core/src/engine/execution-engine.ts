@@ -33,6 +33,8 @@ export interface EngineDeps {
   concurrency: number;
   allowMutating: boolean;
   signal: AbortSignal;
+  maxResponseBytes?: number;
+  captureBodies?: boolean;
 }
 
 export class ExecutionEngine {
@@ -147,6 +149,8 @@ export class ExecutionEngine {
       scanId: this.#d.scanId,
       resolveIdentity: (ref: IdentityRef) => this.#d.identities.get(ref),
       signal: this.#d.signal,
+      ...(this.#d.maxResponseBytes !== undefined ? { maxResponseBytes: this.#d.maxResponseBytes } : {}),
+      ...(this.#d.captureBodies !== undefined ? { captureBodies: this.#d.captureBodies } : {}),
     });
 
     return {

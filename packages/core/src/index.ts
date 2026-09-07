@@ -47,6 +47,7 @@ export {
 } from "./target/discovery/openapi.js";
 export { discoverFromPostman } from "./target/discovery/postman.js";
 export { discoverFromHar } from "./target/discovery/har.js";
+export { discoverFromCrawl, type CrawlOptions } from "./target/discovery/crawl.js";
 
 // Findings
 export { FindingRegistryImpl, type Baseline } from "./findings/registry.js";

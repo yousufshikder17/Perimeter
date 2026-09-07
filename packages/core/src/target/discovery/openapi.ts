@@ -7,7 +7,7 @@ import type { Endpoint, HttpMethod } from "@perimeter/sdk";
  * by the user. The platform never guesses ownership semantics silently: inferred
  * `objectRef`/`tenantScoped` come out as suggestions the user confirms.
  *
- * HAR/Postman/authenticated-crawl discovery is sequenced next (spec §8, §10).
+ * HAR, Postman, and authenticated crawl share this review-required draft format.
  */
 
 export interface DiscoveryResult {

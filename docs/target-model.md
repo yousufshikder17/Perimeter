@@ -47,6 +47,51 @@ HAR 1.2 capture. Ownership
 semantics are never guessed silently — inferred `objectRef`/`tenantScoped` come
 out as review notes you confirm before the model is trusted.
 
+### Authenticated crawl
+
+```bash
+perimeter model crawl target.yaml --as tenantA.user --start /api/ \
+  --max-pages 50 --max-depth 3 --max-seconds 120 \
+  --audit-log crawl-audit.ndjson --out draft.yaml
+```
+
+Uses the configured identity and the normal scan authorization gate, rate limits,
+credential exchange/refresh, audit log, and cancellation. Production still needs
+`PERIMETER_CONFIRM_PRODUCTION=yes`. An empty `endpoints` list is allowed for
+bootstrapping; crawling never provisions scratch fixtures or submits forms.
+Built-in authentication can POST to the explicitly configured login/token URLs;
+all discovery requests are GETs. Only crawl targets you are authorized to test
+and whose GET handlers are safe for that identity.
+
+Traversal is breadth-first on the exact target origin (scheme, host, and port).
+It follows HTML anchor/area links (including the first HTML base URL), JSON
+`href`/`url` string fields, and explicit redirect destinations. Fragments are
+removed; duplicate URLs are visited once. Userinfo and external URLs are rejected.
+Query-bearing links are omitted with a review note, not silently rewritten.
+There is no JavaScript execution, browser OAuth, asset fetching, form submission,
+parameter guessing, or automatic cookie jar beyond the configured session cookie.
+
+Defaults are 50 GET requests, depth 3 (start is depth 0), and 120 seconds.
+Limits accept 1–1000 pages, depth 0–10, and 1–3600 seconds. Redirects count against
+both page and depth limits. Total guarded requests, including authentication,
+are capped at twice `max-pages`. Each response, including authentication, is
+limited to 1 MiB; oversized responses, authentication/access failures (401/403),
+network errors, and timeouts fail the command without emitting a successful
+partial draft. Page/depth limits and other non-success responses produce explicit
+review notes. Unsupported response types can be inventoried but are not parsed.
+
+Only successful GET paths enter the draft. `auth: optional` is a placeholder for
+review, not a verified property: authenticated access cannot establish whether
+anonymous access is denied. Concrete resource IDs are not generalized into route
+parameters. Confirm authentication, tenant scope, ownership, and all paths before
+using this inventory in a scan. This is linked endpoint discovery, not exhaustive
+API coverage.
+
+Without `--out`, stdout is YAML only; review notes go to stderr. `--out` creates
+a new file and refuses to overwrite an existing model. The audit log is appended
+locally with credential headers redacted and response bodies withheld. Treat
+paths and other response metadata as potentially sensitive local artifacts.
+
 ## Validate
 
 ```bash

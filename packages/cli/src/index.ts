@@ -1,6 +1,6 @@
 import { Builtins, Cli } from "clipanion";
 import { ScanCommand } from "./commands/scan.js";
-import { ModelValidateCommand, ModelDiscoverCommand } from "./commands/model.js";
+import { ModelValidateCommand, ModelDiscoverCommand, ModelCrawlCommand } from "./commands/model.js";
 import { ProbeNewCommand, ProbeLintCommand } from "./commands/probe.js";
 import { ReportCommand } from "./commands/report.js";
 import { BaselineCreateCommand } from "./commands/baseline.js";
@@ -16,6 +16,7 @@ export function buildCli(): Cli {
   cli.register(ScanCommand);
   cli.register(ModelValidateCommand);
   cli.register(ModelDiscoverCommand);
+  cli.register(ModelCrawlCommand);
   cli.register(ProbeNewCommand);
   cli.register(ProbeLintCommand);
   cli.register(ReportCommand);
