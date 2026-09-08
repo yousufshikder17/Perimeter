@@ -44,9 +44,12 @@ TARGET         multi-tenant SaaS HTTP API (+ optional GraphQL/gRPC/DB-RLS adapte
 ## Process model (local/CI)
 
 A single Node process hosts the orchestrator, engine (async, concurrency-bounded),
-in-process probes, the safety guard, and the audit-log writer. A probe may declare
-`isolation: "subprocess"` for a heavy/untrusted dependency; it speaks the same
-probe protocol over a local IPC channel — the core doesn't care (spec §2.4).
+trusted in-process probes, the safety guard, and the audit-log writer. Declarative
+`isolatedProbes` launch external workers over portable NDJSON stdin/stdout, using
+a restricted container runner or an explicitly operator-managed command runner.
+The parent owns target requests, credentials, budgets, and recorded evidence.
+See [isolated probes](isolated-probes.md) for Docker, compatible runtimes, manual
+operation, and the distinction between process isolation and a security sandbox.
 
 ## Deployment profiles (spec §2.3)
 

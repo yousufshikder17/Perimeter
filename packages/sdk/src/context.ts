@@ -24,6 +24,10 @@ export interface GuardedRequest {
   as?: IdentityRef;
   /** Engine-owned JWT test credential; requires `as` and a GET/HEAD request. */
   jwtVariant?: JwtVariant;
+  /** Optional narrower cancellation, combined with (never replacing) the scan signal. */
+  signal?: AbortSignal;
+  /** Narrow the engine's response limit for this request; never raises an existing limit. */
+  maxResponseBytes?: number;
   /**
    * The scratch object id this request writes to, if any. The safety guard permits
    * a write only when it targets a probe-created scratch object (spec §4.2); this

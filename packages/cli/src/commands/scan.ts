@@ -10,6 +10,7 @@ import {
   SarifReporter,
   JUnitReporter,
   loadBaseline,
+  createIsolatedProbe,
 } from "@perimeter/core";
 import type { FindingRegistry, Severity } from "@perimeter/sdk";
 import { loadProbes } from "../probe-loader.js";
@@ -50,6 +51,7 @@ export class ScanCommand extends Command {
     });
 
     const probes = await loadProbes(config.probePaths);
+    probes.push(...config.isolatedProbes.map(createIsolatedProbe));
     const baseline = config.baseline ? await loadBaseline(config.baseline) : undefined;
 
     const registry = await new Orchestrator(config, probes, baseline ? { baseline } : {}).run();

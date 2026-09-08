@@ -8,6 +8,7 @@ import { GuardedHttpClientImpl } from "../http/guarded-http-client.js";
 import type { AuditSink } from "../audit/audit-log.js";
 import type { IdentityManager } from "../identity/identity-manager.js";
 import { AuthenticationError } from "../identity/identity-manager.js";
+import { IsolatedProbeError, isManagedIsolatedProbe } from "../isolation/probe.js";
 import type { FixtureManager } from "../identity/fixtures.js";
 import type { FindingRegistryImpl } from "../findings/registry.js";
 import type { Logger, Clock, TargetModel } from "@perimeter/sdk";
@@ -46,6 +47,9 @@ export class ExecutionEngine {
 
   /** Execute all applicable probes, respecting the concurrency bound. */
   async run(probes: Probe[]): Promise<void> {
+    if (probes.some((probe) => probe.manifest.isolation === "subprocess" && !isManagedIsolatedProbe(probe))) {
+      throw new IsolatedProbeError("Subprocess probes must use the declarative isolatedProbes runner, not host imports");
+    }
     // Provision scratch fixtures BEFORE any probe runs, so isolation/IDOR probes
     // reference engine-created, disposable objects instead of real records (§4.3).
     await this.#provisionFixtures(probes);
@@ -124,7 +128,7 @@ export class ExecutionEngine {
       log.info("probe running", { steps: plan.steps.length });
       await probe.run(plan, ctx);
     } catch (err) {
-      if (err instanceof AuthenticationError) throw err;
+      if (err instanceof AuthenticationError || err instanceof IsolatedProbeError) throw err;
       // A crashing/misbehaving probe cannot corrupt the scan or escape the guard.
       log.error("probe errored", { error: String(err) });
       this.#d.registry.recordSkip(probe.manifest.id, `errored: ${String(err)}`);

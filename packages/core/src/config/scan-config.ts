@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { IsolatedProbeSchema } from "../isolation/protocol.js";
 
 /**
  * Scan configuration (spec §4.1 responsibility 5, §8). A scan has a seed and a
@@ -17,6 +18,8 @@ export const ScanConfigSchema = z
     exclude: z.array(z.string()).default([]),
     /** Directories/packages to load probes from, in addition to the standard lib. */
     probePaths: z.array(z.string()).default([]),
+    /** Declarative external workers; their code is never imported into the host. */
+    isolatedProbes: z.array(IsolatedProbeSchema).default([]),
     /** Bounded concurrency for probe execution (spec §4.1). Conservative default. */
     concurrency: z.number().int().positive().default(2),
     /** Total-request ceiling for the whole scan (spec §4.2 runaway control). */

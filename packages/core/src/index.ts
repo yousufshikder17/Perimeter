@@ -11,6 +11,8 @@ export const CORE_VERSION = "0.1.0" as const;
 // Orchestration & engine
 export { Orchestrator, type OrchestratorOptions } from "./orchestrator.js";
 export { ExecutionEngine } from "./engine/execution-engine.js";
+export { createIsolatedProbe, IsolatedProbeError } from "./isolation/probe.js";
+export { IsolatedProbeSchema, ISOLATED_PROTOCOL_VERSION, type IsolatedProbeConfig } from "./isolation/protocol.js";
 export { selectProbes, type Selection } from "./engine/scheduler.js";
 
 // Config

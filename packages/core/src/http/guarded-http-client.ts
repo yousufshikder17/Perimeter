@@ -63,7 +63,12 @@ export class GuardedHttpClientImpl implements GuardedHttpClient {
   }
 
   async request(req: GuardedRequest): Promise<GuardedResponse> {
-    this.#d.signal.throwIfAborted();
+    const signal = req.signal ? AbortSignal.any([this.#d.signal, req.signal]) : this.#d.signal;
+    signal.throwIfAborted();
+    if (req.maxResponseBytes !== undefined && (!Number.isSafeInteger(req.maxResponseBytes) || req.maxResponseBytes <= 0)) {
+      throw new Error("maxResponseBytes must be a positive safe integer");
+    }
+    const maxResponseBytes = Math.min(req.maxResponseBytes ?? Infinity, this.#d.maxResponseBytes ?? Infinity);
     if (req.jwtVariant !== undefined && (!req.as || !["GET", "HEAD"].includes(req.method))) {
       throw new Error("JWT test requests require an identity and GET/HEAD");
     }
@@ -85,12 +90,13 @@ export class GuardedHttpClientImpl implements GuardedHttpClient {
 
     // (3) rate limiter
     const host = new URL(url).host;
-    await this.#d.limiter.acquire(host, this.#d.signal);
+    await this.#d.limiter.acquire(host, signal);
 
     // credentials from the engine-owned identity, if requested
     const identity = req.as ? this.#d.resolveIdentity(req.as) : undefined;
     if (req.jwtVariant !== undefined && !identity?.jwtVariants) throw new Error("Identity does not support JWT test credentials");
     const authHeaders = identity ? await identity.headers(req.jwtVariant) : {};
+    signal.throwIfAborted();
     const outHeaders = { ...(req.headers ?? {}), ...authHeaders };
 
     // (4) issue
@@ -99,17 +105,17 @@ export class GuardedHttpClientImpl implements GuardedHttpClient {
       method: req.method,
       headers: outHeaders,
       ...(req.body !== undefined ? { body: req.body } : {}),
-      signal: this.#d.signal,
+      signal,
     });
     let respText: string;
-    if (this.#d.maxResponseBytes === undefined) {
+    if (maxResponseBytes === Infinity) {
       respText = await res.body.text();
     } else {
       const chunks: Buffer[] = [];
       let size = 0;
       for await (const chunk of res.body) {
         size += chunk.length;
-        if (size > this.#d.maxResponseBytes) {
+        if (size > maxResponseBytes) {
           res.body.destroy();
           await this.#d.audit.append({
             scanId: this.#d.scanId, probeId: this.#d.probeId,

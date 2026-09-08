@@ -76,6 +76,8 @@ export const ProbeManifestSchema = z
     version: z.string(),
     /** Finding-schema major version this probe emits (spec §6.1). */
     schemaVersion: z.string(),
+    /** External execution must be configured declaratively, never imported on the host. */
+    isolation: z.literal("subprocess").optional(),
     requires: ProbeRequiresSchema.default({}),
     safety: ProbeSafetySchema,
     /** Path to a JSON Schema / Zod config schema, or inline JSON Schema. */
