@@ -191,6 +191,9 @@ Hook-owned I/O is outside the guarded probe HTTP path.
 
 ## Built-in authentication exchange
 
+The authentication probe also supports engine-generated JWT test credentials;
+see the JWT checks below for the separate expired-token fixture contract.
+
 `oauth2_password` now performs the standard form-encoded password grant and
 refresh-token grant rather than treating the environment value as a bearer token.
 Each identity's `credentials.env` names a JSON string containing `username` and
@@ -232,3 +235,61 @@ responses fail authentication. Request/response bodies are fully redacted from
 authentication audit entries; returned tokens/cookies are redacted from ordinary
 request headers. Non-sensitive audit metadata remains available. The engine
 supports the [OAuth password and refresh contracts](https://www.rfc-editor.org/rfc/rfc6749.html#section-4.3).
+
+## JWT authentication checks
+
+`auth/token-manipulation` checks missing authentication and four JWT variants:
+`none-alg`, `signature-stripped`, `tenant-swapped`, and `expired`. Run the normal
+scan with `include: [auth]` to select the authentication family.
+
+JWT checks require exactly one Bearer authorization header containing a signed,
+compact JWT (maximum 16 KiB), whether supplied statically, through OAuth, or by a
+custom hook. API keys, opaque tokens, cookies, unsigned tokens, and identities
+with additional credential headers are not used for these checks. The engine
+does not silently fall back to the original token if a variant is unavailable.
+
+For non-parameterized protected GET endpoints, the probe uses the first modeled
+identity. Parameterized endpoints need an existing engine-provisioned scratch
+object: its owner is used and its ID is URL-encoded into the declared object
+parameter. Unresolved parameters are omitted with a warning. This probe does not
+create fixtures itself or guess real resource IDs.
+
+Anonymous access must return 401/403 and the live credential must return 2xx
+before any variant is tried. Anonymous success remains the existing missing-auth
+finding; it does not also produce forged-token findings. Each variant is sent
+through the guarded client, with normal rate limits, audit redaction, cancellation,
+and the existing 30-request probe ceiling. A full endpoint check costs at most six
+GETs. Authentication exchanges additionally consume the shared scan budget.
+Inapplicable checks and inconclusive controls/rejections are logged as warnings,
+not reported as security passes.
+
+`tenant-swapped` is available only when the configured JWT claim equals the
+identity's modeled tenant and another tenant is modeled. It changes that claim
+while retaining the original signature. Acceptance indicates possible integrity
+validation failure, not proof that another tenant's data was disclosed.
+
+To check actual expiry separately from signature tampering, supply a raw,
+pre-issued expired JWT through an environment variable (no `Bearer` prefix):
+
+```yaml
+identities:
+  - ref: tenantA.user
+    tenant: tenant-a
+    role: member
+    credentials: { env: TENANT_A_LIVE_TOKEN }
+    expiredCredentials: { env: TENANT_A_EXPIRED_TOKEN }
+```
+
+The expired sample must use the live token's algorithm, have the same claims
+except `exp`, `iat`, `nbf`, and `jti`, and be expired for at least 60 seconds.
+Missing or invalid configured samples fail the scan without logging their value.
+Without a configured sample, only the expiry check is omitted. The operator must
+ensure its signature is genuinely valid for the target and that expiry exceeds
+the target's allowed clock skew; the engine decodes but cannot verify the target's
+signature without its verification keys. Live credential caches are never changed
+by test variants, and an expired sample is never refreshed into a live token.
+
+Variant success produces a HIGH/FIRM finding with anonymous, live, and modified
+request evidence and a distinct fingerprint per variant. A 2xx response alone is
+not conclusive proof of protected-data access: review response semantics before
+confirming a bypass, particularly for login pages and APIs using 2xx error bodies.

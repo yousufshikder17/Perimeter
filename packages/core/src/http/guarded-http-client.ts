@@ -64,6 +64,9 @@ export class GuardedHttpClientImpl implements GuardedHttpClient {
 
   async request(req: GuardedRequest): Promise<GuardedResponse> {
     this.#d.signal.throwIfAborted();
+    if (req.jwtVariant !== undefined && (!req.as || !["GET", "HEAD"].includes(req.method))) {
+      throw new Error("JWT test requests require an identity and GET/HEAD");
+    }
 
     const url = this.#resolveUrl(req.url);
     const bodyText = typeof req.body === "string" ? req.body : req.body ? Buffer.from(req.body).toString("utf8") : undefined;
@@ -85,7 +88,9 @@ export class GuardedHttpClientImpl implements GuardedHttpClient {
     await this.#d.limiter.acquire(host, this.#d.signal);
 
     // credentials from the engine-owned identity, if requested
-    const authHeaders = req.as ? await this.#d.resolveIdentity(req.as).headers() : {};
+    const identity = req.as ? this.#d.resolveIdentity(req.as) : undefined;
+    if (req.jwtVariant !== undefined && !identity?.jwtVariants) throw new Error("Identity does not support JWT test credentials");
+    const authHeaders = identity ? await identity.headers(req.jwtVariant) : {};
     const outHeaders = { ...(req.headers ?? {}), ...authHeaders };
 
     // (4) issue
@@ -146,6 +151,11 @@ export class GuardedHttpClientImpl implements GuardedHttpClient {
     respText: string,
     elapsedMs: number,
   ): HttpExchange {
+    const authorization = Object.entries(reqHeaders).find(([name]) => name.toLowerCase() === "authorization")?.[1];
+    const bearer = /^Bearer\s+(.+)$/i.exec(authorization ?? "")?.[1];
+    const scrubBearer = (value: string) => bearer ? value.replaceAll(bearer, "«redacted»") : value;
+    const responseHeaders = redactHeaders(flattenHeaders(res.headers));
+    for (const [name, value] of Object.entries(responseHeaders)) responseHeaders[name] = scrubBearer(value);
     return {
       ref: `exch-${exchangeCounter++}`,
       request: {
@@ -156,8 +166,8 @@ export class GuardedHttpClientImpl implements GuardedHttpClient {
       },
       response: {
         status: res.statusCode,
-        headers: redactHeaders(flattenHeaders(res.headers)),
-        body: this.#d.captureBodies === false ? "«redacted»" : redactBody(respText.slice(0, MAX_CAPTURED_BODY_BYTES)),
+        headers: responseHeaders,
+        body: this.#d.captureBodies === false ? "«redacted»" : redactBody(scrubBearer(respText).slice(0, MAX_CAPTURED_BODY_BYTES)),
         elapsedMs,
       },
       ...(req.as ? { issuedAs: req.as } : {}),

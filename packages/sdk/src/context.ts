@@ -22,6 +22,8 @@ export interface GuardedRequest {
   body?: string | Uint8Array;
   /** Issue this request authenticated as the given identity (engine mints creds). */
   as?: IdentityRef;
+  /** Engine-owned JWT test credential; requires `as` and a GET/HEAD request. */
+  jwtVariant?: JwtVariant;
   /**
    * The scratch object id this request writes to, if any. The safety guard permits
    * a write only when it targets a probe-created scratch object (spec §4.2); this
@@ -58,12 +60,16 @@ export interface GuardedHttpClient {
 // Identity handles (minted by the engine — spec §4.3)
 // ---------------------------------------------------------------------------
 
+export type JwtVariant = "none-alg" | "signature-stripped" | "tenant-swapped" | "expired";
+
 export interface Identity {
   readonly ref: IdentityRef;
   readonly tenant: string;
   readonly role: string;
   /** Auth headers to attach; refreshed by the engine on expiry. */
-  headers(): Promise<Record<string, string>>;
+  headers(variant?: JwtVariant): Promise<Record<string, string>>;
+  /** Available JWT checks, without exposing token data. May mint credentials: run phase only. */
+  jwtVariants?(): Promise<JwtVariant[]>;
 }
 
 // ---------------------------------------------------------------------------

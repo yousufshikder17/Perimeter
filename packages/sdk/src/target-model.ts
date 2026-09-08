@@ -38,6 +38,8 @@ export const IdentitySpecSchema = z
       .object({ env: z.string() })
       .strict()
       .optional(),
+    /** Pre-issued, signed expired JWT for the same principal; never inline. */
+    expiredCredentials: z.object({ env: z.string().min(1) }).strict().optional(),
   })
   .strict();
 export type IdentitySpec = z.infer<typeof IdentitySpecSchema>;

@@ -1,6 +1,7 @@
-import type { Identity, IdentityRef, TargetModel, AuthScheme } from "@perimeter/sdk";
+import type { Identity, IdentityRef, TargetModel, AuthScheme, JwtVariant } from "@perimeter/sdk";
 import { validateHeaderValue } from "node:http";
 import type { ExchangeCredential } from "./token-exchange.js";
+import { createJwtVariants } from "./jwt-variants.js";
 
 /**
  * Identity minting (spec §4.3). The engine owns this so probes stay declarative:
@@ -52,8 +53,20 @@ export class IdentityManager {
       ref,
       tenant: spec.tenant,
       role: spec.role,
-      headers: async () =>
-        this.#mint(this.#target.auth.scheme, spec.ref, spec.tenant, spec.role, spec.credentials?.env),
+      headers: async (variant) => {
+        const headers = await this.#mint(this.#target.auth.scheme, spec.ref, spec.tenant, spec.role, spec.credentials?.env);
+        if (variant === undefined) return headers;
+        try {
+          const modified = createJwtVariants(headers, this.#target, spec)[variant];
+          if (modified) return modified;
+        } catch { /* Never leak credentials or parser errors to logs. */ }
+        throw new AuthenticationError("JWT test credential is unavailable or invalid; check the identity and expiredCredentials configuration");
+      },
+      jwtVariants: async () => {
+        const headers = await identity.headers();
+        try { return Object.keys(createJwtVariants(headers, this.#target, spec)) as JwtVariant[]; }
+        catch { throw new AuthenticationError("JWT test credential is unavailable or invalid; check the identity and expiredCredentials configuration"); }
+      },
     };
 
     this.#cache.set(ref, identity);
