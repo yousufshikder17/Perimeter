@@ -75,6 +75,7 @@ export class GuardedHttpClientImpl implements GuardedHttpClient {
 
     const url = this.#resolveUrl(req.url);
     const bodyText = typeof req.body === "string" ? req.body : req.body ? Buffer.from(req.body).toString("utf8") : undefined;
+    const contentType = Object.entries(req.headers ?? {}).find(([name]) => name.toLowerCase() === "content-type")?.[1];
 
     // (1) budget — throws when exhausted
     this.#d.budget.consume();
@@ -86,6 +87,8 @@ export class GuardedHttpClientImpl implements GuardedHttpClient {
       url,
       probeSafetyClass: this.#d.probeSafetyClass,
       payloadParts: [new URL(url).search, bodyText],
+      ...(bodyText !== undefined ? { body: bodyText } : {}),
+      ...(contentType !== undefined ? { contentType } : {}),
       ...(req.targetsScratchObjectId ? { targetsScratchObjectId: req.targetsScratchObjectId } : {}),
     });
 

@@ -1,4 +1,4 @@
-import type { SafetyClass } from "@perimeter/sdk";
+import { GraphqlQuerySchema, type SafetyClass } from "@perimeter/sdk";
 import { inspectOutboundPayload, isReadOnlyMethod } from "./outbound-inspector.js";
 
 /**
@@ -15,6 +15,8 @@ import { inspectOutboundPayload, isReadOnlyMethod } from "./outbound-inspector.j
  */
 
 export interface GuardPolicy {
+  /** Exact reviewed query documents; only these can use GraphQL query POSTs. */
+  graphqlEndpoints?: ReadonlyArray<{ url: string; query: string }>;
   /** Exact POST URLs for the engine-owned authentication client only. */
   authenticationUrls?: ReadonlySet<string>;
   /** Hosts egress is allowed to reach — the modeled target only (spec §4.2). */
@@ -48,6 +50,8 @@ export interface GuardCheckInput {
   payloadParts: Array<string | undefined>;
   /** Object id this write targets, if the probe declared one (write path only). */
   targetsScratchObjectId?: string;
+  body?: string;
+  contentType?: string;
 }
 
 export class SafetyViolation extends Error {
@@ -67,8 +71,37 @@ export class SafetyGuard {
   /** Throws SafetyViolation if the request is not permitted. Called on EVERY egress. */
   check(input: GuardCheckInput): void {
     this.#checkHost(input.url);
-    this.#checkMethod(input);
+    if (!this.#checkGraphql(input)) this.#checkMethod(input);
     this.#checkPayload(input.payloadParts);
+  }
+
+  #checkGraphql(input: GuardCheckInput): boolean {
+    const url = new URL(input.url);
+    const modeled = this.#policy.graphqlEndpoints?.filter((endpoint) => {
+      const expected = new URL(endpoint.url);
+      return expected.origin === url.origin && expected.pathname === url.pathname;
+    });
+    if (!modeled?.length) return false;
+    try {
+      if (url.username || url.password || url.hash || input.url.length > 65536) throw new Error();
+      let envelope: unknown;
+      if (input.method === "GET") {
+        if (input.body !== undefined || url.searchParams.getAll("query").length !== 1 || url.searchParams.getAll("variables").length > 1 ||
+            [...url.searchParams.keys()].some((key) => !["query", "variables"].includes(key))) throw new Error();
+        envelope = { query: url.searchParams.get("query"), variables: JSON.parse(url.searchParams.get("variables") ?? "{}") };
+      } else if (input.method === "POST") {
+        if (url.search || !/^application\/json(?:\s*;|$)/i.test(input.contentType ?? "") || !input.body || input.body.length > 65536) throw new Error();
+        envelope = JSON.parse(input.body);
+      } else throw new Error();
+      if (!envelope || typeof envelope !== "object" || Array.isArray(envelope)) throw new Error();
+      const payload = envelope as Record<string, unknown>;
+      if (Object.keys(payload).some((key) => !["query", "variables"].includes(key)) ||
+          !modeled.some((endpoint) => endpoint.query === payload.query) || !GraphqlQuerySchema.safeParse(payload.query).success ||
+          (payload.variables !== undefined && (!payload.variables || typeof payload.variables !== "object" || Array.isArray(payload.variables)))) throw new Error();
+      return true;
+    } catch {
+      throw new SafetyViolation("GraphQL traffic must use a single exact reviewed read-only query and a bounded JSON envelope");
+    }
   }
 
   #checkHost(url: string): void {

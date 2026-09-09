@@ -82,6 +82,7 @@ export class ExecutionEngine {
     const modeled = new Set(this.#d.target.identities.map((i) => i.ref));
     const needed = new Set<IdentityRef>();
     for (const probe of probes) {
+      if (probe.manifest.requires.allIdentities) for (const ref of modeled) needed.add(ref);
       for (const ref of probe.manifest.requires.identities ?? []) {
         if (modeled.has(ref)) needed.add(ref);
       }
@@ -142,6 +143,8 @@ export class ExecutionEngine {
   #buildContext(probe: Probe): ProbeContext {
     const budget = new MutableBudget(probe.manifest.safety.maxRequests, this.#d.globalBudget);
     const guard = new SafetyGuard({
+      graphqlEndpoints: this.#d.target.endpoints.filter((e) => !!e.graphql)
+        .map((e) => ({ url: new URL(e.path, this.#d.target.baseUrl).href, query: e.graphql!.query })),
       allowedHosts: new Set([new URL(this.#d.target.baseUrl).host]),
       allowMutating: this.#d.allowMutating,
       scratchObjectIds: this.#d.fixtures.scratchObjectIds(),

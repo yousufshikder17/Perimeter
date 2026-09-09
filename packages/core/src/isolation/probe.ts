@@ -70,7 +70,8 @@ async function runWorker(config: IsolatedProbeConfig, ctx: ProbeContext): Promis
     child.stdin.on("error", () => controller.abort());
     try {
       signal.throwIfAborted();
-      const allowedIdentities = new Set(config.manifest.requires.identities ?? []);
+      const allowedIdentities = new Set(config.manifest.requires.allIdentities
+        ? ctx.target.identities.map((identity) => identity.ref) : config.manifest.requires.identities ?? []);
       const fixtures = [...new Set(ctx.target.endpoints.map((endpoint) => endpoint.creates).filter((kind): kind is string => !!kind))]
         .flatMap((kind) => ctx.fixtures.ofKind(kind)).filter((fixture) => allowedIdentities.has(fixture.ownerIdentity));
       const start = {

@@ -58,6 +58,8 @@ export const ProbeRequiresSchema = z
     minTenants: z.number().int().nonnegative().optional(),
     /** Identity refs the probe needs minted, e.g. ["tenantA.user", "tenantB.user"]. */
     identities: z.array(z.string()).optional(),
+    /** Opt in to every modeled identity, for target-configured identity pairs. */
+    allIdentities: z.boolean().optional(),
     /**
      * Endpoint capability tags the target must expose, expressed in terms of
      * the semantic annotations (spec §5.3): e.g. "readsTenantScopedObject",

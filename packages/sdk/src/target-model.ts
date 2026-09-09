@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { Kind, parse, visit } from "graphql";
+import type { GuardedRequest } from "./context.js";
 
 /**
  * Target Model (spec §5) — the declarative description of a target's auth model,
@@ -145,11 +147,42 @@ const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() => z.union([
   z.array(JsonValueSchema), z.record(JsonValueSchema),
 ]));
 
+/** Reviewed, small query documents only; no batching, fragments, or directives. */
+export const GraphqlQuerySchema = z.string().min(1).max(8192).superRefine((query, ctx) => {
+  try {
+    const document = parse(query, { maxTokens: 1000 });
+    const operation = document.definitions[0];
+    if (document.definitions.length !== 1 || operation?.kind !== Kind.OPERATION_DEFINITION || operation.operation !== "query") throw new Error();
+    let depth = 0;
+    let fields = 0;
+    visit(document, {
+      SelectionSet: { enter() { if (++depth > 8) throw new Error(); }, leave() { depth--; } },
+      Field() { if (++fields > 50) throw new Error(); },
+      FragmentSpread() { throw new Error(); },
+      InlineFragment() { throw new Error(); },
+      Directive() { throw new Error(); },
+    });
+  } catch {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "GraphQL requires one bounded query (depth <=8, fields <=50), without fragments or directives" });
+  }
+});
+
+export const GraphqlModelSchema = z.object({
+  query: GraphqlQuerySchema,
+  variables: z.record(JsonValueSchema).default({}),
+  /** Relative to response.data; must select a protected, distinguishing scalar. */
+  resultPath: z.array(z.string().min(1)).min(1).max(8),
+  ownerIdentity: IdentityRef,
+  otherIdentity: IdentityRef,
+}).strict();
+
 export const EndpointSchema = z
   .object({
     id: z.string(),
     method: HttpMethod,
     path: z.string(),
+    /** A reviewed GraphQL query transported by GET or POST, not a REST route. */
+    graphql: GraphqlModelSchema.optional(),
     /** Must enforce tenant isolation → tenant-isolation probe target. */
     tenantScoped: z.boolean().default(false),
     /** Present → IDOR probe target. */
@@ -171,6 +204,19 @@ export const EndpointSchema = z
   })
   .strict()
   .superRefine((endpoint, ctx) => {
+    if (endpoint.graphql) {
+      if (!["GET", "POST"].includes(endpoint.method) || !/^\/(?!\/)[^?#{}]*$/.test(endpoint.path) || endpoint.creates || endpoint.fixture) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["graphql"], message: "GraphQL needs GET/POST and a literal origin-relative path, with no factory annotations" });
+      }
+      if (endpoint.objectRef) {
+        try {
+          const operation = parse(endpoint.graphql.query).definitions[0];
+          if (operation?.kind !== Kind.OPERATION_DEFINITION || !operation.variableDefinitions?.some((v) => v.variable.name.value === endpoint.objectRef!.param)) throw new Error();
+        } catch {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["objectRef"], message: "GraphQL objectRef.param must name a declared query variable" });
+        }
+      }
+    }
     if (endpoint.fixture && (!endpoint.creates?.trim() || endpoint.method !== "POST")) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -225,6 +271,14 @@ export const TargetModelSchema = z
   })
   .strict()
   .superRefine((model, ctx) => {
+    for (const endpoint of model.endpoints) {
+      if (!endpoint.graphql) continue;
+      const owner = model.identities.find((i) => i.ref === endpoint.graphql!.ownerIdentity);
+      const other = model.identities.find((i) => i.ref === endpoint.graphql!.otherIdentity);
+      if (!owner || !other || owner.ref === other.ref || (endpoint.tenantScoped && owner.tenant === other.tenant)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endpoints"], message: "GraphQL needs distinct modeled owner/other identities (different tenants when tenantScoped)" });
+      }
+    }
     if (model.auth.scheme === "oauth2_password" || model.auth.login) {
       for (const endpoint of [model.auth.tokenEndpoint, model.auth.refresh?.endpoint]) {
         if (!endpoint) continue;
@@ -254,4 +308,17 @@ export type TargetModel = z.infer<typeof TargetModelSchema>;
 
 export function parseTargetModel(input: unknown): TargetModel {
   return TargetModelSchema.parse(input);
+}
+
+/** Reuses guarded HTTP: GraphQL never introduces another network client. */
+export function graphqlRequest(endpoint: Endpoint, variables = endpoint.graphql?.variables): GuardedRequest {
+  if (!endpoint.graphql) throw new Error("Endpoint has no GraphQL query");
+  const envelope = { query: endpoint.graphql.query, variables: variables ?? {} };
+  return {
+    method: endpoint.method,
+    url: endpoint.method === "GET" ? `${endpoint.path}?${new URLSearchParams({ query: envelope.query, variables: JSON.stringify(envelope.variables) })}` : endpoint.path,
+    ...(endpoint.method === "POST" ? { body: JSON.stringify(envelope) } : {}),
+    headers: { accept: "application/graphql-response+json, application/json", "content-type": "application/json" },
+    maxResponseBytes: 65536,
+  };
 }
