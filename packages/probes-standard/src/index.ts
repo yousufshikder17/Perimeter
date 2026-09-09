@@ -4,9 +4,10 @@ import { sequentialIdSwap } from "./idor/sequential-id-swap.js";
 import { sqliDifferential } from "./injection/sqli-differential.js";
 import { tokenManipulation } from "./auth/token-manipulation.js";
 import { burstThrottle } from "./rate-limit/burst-throttle.js";
+import { graphqlAuthorization } from "./graphql/authorization.js";
 
 /**
- * @perimeter/probes-standard — the five standard families (spec §3.3, §8).
+ * @perimeter/probes-standard — REST families plus reviewed GraphQL authorization.
  *
  * Each is authored as a plugin on @perimeter/sdk; nothing in the engine
  * special-cases a family name. The `perimeter.probes` export is the package
@@ -19,9 +20,10 @@ export const STANDARD_PROBES: Probe[] = [
   sqliDifferential,
   tokenManipulation,
   burstThrottle,
+  graphqlAuthorization,
 ];
 
 export const perimeter: ProbePackage["perimeter"] = { probes: STANDARD_PROBES };
 
 // Named exports for direct import / testing
-export { crossTenantRead, sequentialIdSwap, sqliDifferential, tokenManipulation, burstThrottle };
+export { crossTenantRead, sequentialIdSwap, sqliDifferential, tokenManipulation, burstThrottle, graphqlAuthorization };

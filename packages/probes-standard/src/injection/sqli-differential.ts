@@ -19,14 +19,14 @@ export const sqliDifferential: Probe = {
   manifest: {
     id: "injection/sqli-differential",
     family: "injection",
-    version: "0.1.0",
+    version: "0.1.1",
     schemaVersion: "1",
     requires: { endpoints: ["injectableInput"] },
     safety: { class: "read-only", maxRequests: 40, destructive: false },
   },
 
   async plan(ctx): Promise<ProbePlan | ReturnType<typeof skip>> {
-    const targets = ctx.target.endpoints.filter((e) => (e.injectable?.length ?? 0) > 0);
+    const targets = ctx.target.endpoints.filter((e) => !e.graphql && (e.injectable?.length ?? 0) > 0);
     if (targets.length === 0) return skip("no endpoint declares injectable input fields");
     return {
       probeId: this.manifest.id,

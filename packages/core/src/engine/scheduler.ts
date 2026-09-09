@@ -68,6 +68,7 @@ function endpointHasCapability(
   e: TargetModel["endpoints"][number],
   cap: string,
 ): boolean {
+  if (e.graphql) return cap === "graphqlQuery";
   switch (cap) {
     case "readsTenantScopedObject":
       return e.tenantScoped && e.method === "GET";

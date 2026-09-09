@@ -132,7 +132,9 @@ describe("§8 acceptance scenario (end-to-end)", () => {
     expect(byFamily("rate-limit")).toHaveLength(0);
     expect(registry.passes.some((p) => p.family === "rate-limit")).toBe(true);
 
-    // Every probe applied; none skipped for unmet requirements.
-    expect(registry.skipped).toHaveLength(0);
+    // Every REST probe applied; this target intentionally has no GraphQL query.
+    expect(registry.skipped).toEqual([{
+      probeId: "graphql/authorization", reason: 'no endpoint provides capability "graphqlQuery"',
+    }]);
   });
 });
