@@ -3,6 +3,7 @@ import { isSkip } from "@perimeter/sdk";
 import { SafetyGuard } from "../safety/guard.js";
 import { RateLimiter } from "../safety/rate-limiter.js";
 import { MutableBudget } from "../runtime/budget.js";
+import { CheckpointError } from "../runtime/checkpoint.js";
 import { DeterministicRng } from "../runtime/rng.js";
 import { GuardedHttpClientImpl } from "../http/guarded-http-client.js";
 import type { AuditSink } from "../audit/audit-log.js";
@@ -36,6 +37,7 @@ export interface EngineDeps {
   signal: AbortSignal;
   maxResponseBytes?: number;
   captureBodies?: boolean;
+  onCompleted?: (probeId: string) => Promise<void>;
 }
 
 export class ExecutionEngine {
@@ -94,7 +96,7 @@ export class ExecutionEngine {
           await this.#d.fixtures.create(kind, ref);
           created++;
         } catch (err) {
-          if (err instanceof AuthenticationError) throw err;
+          if (err instanceof AuthenticationError || err instanceof CheckpointError) throw err;
           this.#d.logger.warn("fixture provisioning failed (skipped)", {
             kind,
             identity: ref,
@@ -123,16 +125,18 @@ export class ExecutionEngine {
       if (isSkip(plan)) {
         this.#d.registry.recordSkip(probe.manifest.id, plan.reason);
         log.info("probe skipped", { reason: plan.reason });
-        return;
+      } else {
+        log.info("probe running", { steps: plan.steps.length });
+        await probe.run(plan, ctx);
       }
-      log.info("probe running", { steps: plan.steps.length });
-      await probe.run(plan, ctx);
     } catch (err) {
-      if (err instanceof AuthenticationError || err instanceof IsolatedProbeError) throw err;
+      if (err instanceof AuthenticationError || err instanceof IsolatedProbeError || err instanceof CheckpointError) throw err;
       // A crashing/misbehaving probe cannot corrupt the scan or escape the guard.
       log.error("probe errored", { error: String(err) });
       this.#d.registry.recordSkip(probe.manifest.id, `errored: ${String(err)}`);
     }
+    this.#d.signal.throwIfAborted();
+    await this.#d.onCompleted?.(probe.manifest.id);
   }
 
   #buildContext(probe: Probe): ProbeContext {

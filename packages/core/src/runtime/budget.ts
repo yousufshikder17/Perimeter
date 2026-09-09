@@ -8,10 +8,16 @@ export class MutableBudget implements RequestBudget {
   readonly limit: number;
   readonly #parent: MutableBudget | undefined;
   #used = 0;
+  readonly #save: ((used: number) => Promise<void>) | undefined;
 
-  constructor(limit: number, parent?: MutableBudget) {
+  constructor(limit: number, parent?: MutableBudget, checkpoint?: { used: number; save: (used: number) => Promise<void> }) {
     this.limit = limit;
     this.#parent = parent;
+    if (checkpoint && (!Number.isSafeInteger(checkpoint.used) || checkpoint.used < 0 || checkpoint.used > limit)) {
+      throw new Error("Invalid checkpoint request usage");
+    }
+    this.#used = checkpoint?.used ?? 0;
+    this.#save = checkpoint?.save;
   }
 
   get used(): number {
@@ -22,6 +28,12 @@ export class MutableBudget implements RequestBudget {
   }
   available(): boolean {
     return this.remaining > 0;
+  }
+
+  /** Persist the shared reservation before network I/O, including failed attempts. */
+  async checkpoint(): Promise<void> {
+    await this.#parent?.checkpoint();
+    await this.#save?.(this.#used);
   }
 
   /** Called by the guarded client before each request; throws when exhausted. */

@@ -12,6 +12,9 @@ export const ScanConfigSchema = z
     target: z.string(),
     /** Deterministic seed; if absent the engine generates and records one. */
     seed: z.string().optional(),
+    /** Explicit durable local checkpoint; existing files require resume: true. */
+    checkpoint: z.string().min(1).optional(),
+    resume: z.boolean().default(false),
     /** Probe families/ids to include; empty = all applicable. */
     include: z.array(z.string()).default([]),
     /** Probe families/ids to exclude. */
@@ -47,7 +50,9 @@ export const ScanConfigSchema = z
     /** Severity at or above which the CI gate fails (spec §8.6). */
     failOn: z.enum(["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO", "none"]).default("HIGH"),
   })
-  .strict();
+  .strict().refine((config) => !config.resume || !!config.checkpoint, {
+    message: "resume requires a checkpoint path", path: ["checkpoint"],
+  });
 
 export type ScanConfig = z.infer<typeof ScanConfigSchema>;
 

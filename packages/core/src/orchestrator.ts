@@ -1,6 +1,7 @@
 import { ulid } from "ulid";
 import { randomBytes } from "node:crypto";
-import type { FindingRegistry, Probe } from "@perimeter/sdk";
+import { resolve } from "node:path";
+import type { FindingRegistry, Probe, TargetModel } from "@perimeter/sdk";
 import type { ScanConfig } from "./config/scan-config.js";
 import { loadTargetModel } from "./target/loader.js";
 import { IdentityManager } from "./identity/identity-manager.js";
@@ -13,7 +14,8 @@ import { NdjsonAuditLog } from "./audit/audit-log.js";
 import { GuardedHttpClientImpl } from "./http/guarded-http-client.js";
 import { SafetyGuard } from "./safety/guard.js";
 import { MutableBudget } from "./runtime/budget.js";
-import { selectProbes } from "./engine/scheduler.js";
+import { selectProbes, type Selection } from "./engine/scheduler.js";
+import { ScanCheckpoint } from "./runtime/checkpoint.js";
 import { ExecutionEngine } from "./engine/execution-engine.js";
 import { SystemClock } from "./runtime/clock.js";
 import { ConsoleLogger } from "./runtime/logger.js";
@@ -47,29 +49,56 @@ export class Orchestrator {
   }
 
   async run(): Promise<FindingRegistry> {
+    const target = await loadTargetModel(this.#config.target);
+    this.#assertAuthorized(target.authorization.environment, this.#opts.logger ?? new ConsoleLogger("info"));
+    const selection = selectProbes(this.#probes, target, this.#config);
+    let checkpoint: ScanCheckpoint | undefined;
+    if (this.#config.checkpoint) {
+      if (selection.applicable.some((p) => p.manifest.safety.class !== "read-only" || p.manifest.safety.destructive)) {
+        throw new Error("Checkpoint replay supports only read-only probes");
+      }
+      if (new Set(this.#probes.map((p) => p.manifest.id)).size !== this.#probes.length) {
+        throw new Error("Checkpoint scans require unique probe IDs");
+      }
+      const checkpointPath = resolve(this.#config.checkpoint);
+      const protectedPaths = [this.#config.target, this.#config.baseline, ...Object.values(this.#config.output)]
+        .filter((path): path is string => !!path).map((path) => resolve(path));
+      if (protectedPaths.some((path) => path === checkpointPath || path === `${checkpointPath}.lock`)) {
+        throw new Error("Checkpoint and lock paths must be separate from targets, baselines, and outputs");
+      }
+      const config = { ...this.#config, resume: false, checkpoint: undefined };
+      checkpoint = await ScanCheckpoint.open(checkpointPath, this.#config.resume, {
+        target, config, manifests: this.#probes.map((p) => p.manifest),
+        baseline: [...this.#opts.baseline?.acceptedFingerprints ?? []].sort(),
+        maxResponseBytes: this.#opts.maxResponseBytes, captureBodies: this.#opts.captureBodies,
+      }, { scanId: ulid(), seed: this.#config.seed ?? randomBytes(8).toString("hex"), startedAt: new Date().toISOString() });
+    }
+    try {
+      return await this.#execute(target, selection, checkpoint);
+    } finally {
+      await checkpoint?.release();
+    }
+  }
+
+  async #execute(target: TargetModel, selection: Selection, checkpoint?: ScanCheckpoint): Promise<FindingRegistry> {
     const logger = this.#opts.logger ?? new ConsoleLogger("info");
     const clock = this.#opts.clock ?? new SystemClock();
-    const scanId = ulid();
-    const seed = this.#config.seed ?? randomBytes(8).toString("hex");
-    const startedAt = new Date().toISOString();
+    const scanId = checkpoint?.state.scanId ?? ulid();
+    const seed = checkpoint?.state.seed ?? this.#config.seed ?? randomBytes(8).toString("hex");
+    const startedAt = checkpoint?.state.startedAt ?? new Date().toISOString();
     const timeoutSignal = AbortSignal.timeout(this.#config.maxWallClockSeconds * 1000);
     const signal = this.#opts.signal
       ? AbortSignal.any([this.#opts.signal, timeoutSignal])
       : timeoutSignal;
-
-    const target = await loadTargetModel(this.#config.target);
-
-    // §5.5 authorization gate — the engine refuses to run without an explicit
-    // assertion, and production forces the most conservative rate profile.
-    this.#assertAuthorized(target.authorization.environment, logger);
 
     const customHook = await loadAuthHook(target, this.#config.target);
     signal.throwIfAborted();
 
     const rateLimit = this.#effectiveRateLimit(target.authorization);
     const limiter = new RateLimiter(rateLimit, clock);
-    const audit = new NdjsonAuditLog(this.#config.output.auditLog);
-    const globalBudget = new MutableBudget(this.#config.maxTotalRequests);
+    const audit = new NdjsonAuditLog(this.#config.output.auditLog, checkpoint?.state.used ?? 0);
+    const globalBudget = new MutableBudget(this.#config.maxTotalRequests, undefined, checkpoint
+      ? { used: checkpoint.state.used, save: (used) => checkpoint.reserve(used) } : undefined);
     const authenticationUrls = new Set([target.auth.tokenEndpoint, target.auth.refresh?.endpoint]
       .filter((url): url is string => !!url).map((url) => new URL(url, target.baseUrl).href));
     const authHttp = new GuardedHttpClientImpl({
@@ -110,10 +139,11 @@ export class Orchestrator {
     const fixtures = new FixtureManager(target, setupHttp, { logger, ids: scratchIds });
     const registry = new FindingRegistryImpl(this.#opts.baseline);
 
-    const selection = selectProbes(this.#probes, target, {
-      include: this.#config.include,
-      exclude: this.#config.exclude,
-    });
+    const completed = new Set(checkpoint?.state.completed.map((r) => r.probeId));
+    for (const result of checkpoint?.state.completed ?? []) {
+      for (const report of [...result.findings, ...result.passes]) registry.report(report);
+      for (const skip of result.skipped) registry.recordSkip(skip.probeId, skip.reason);
+    }
     for (const s of selection.skipped) registry.recordSkip(s.probeId, s.reason);
     logger.info("probes selected", {
       applicable: selection.applicable.length,
@@ -135,12 +165,14 @@ export class Orchestrator {
       concurrency: this.#config.concurrency,
       allowMutating: this.#config.allowMutating,
       signal,
+      ...(checkpoint ? { onCompleted: (probeId: string) => checkpoint.complete(probeId,
+        registry.export({ scanId, target: target.name, seed, startedAt, finishedAt: new Date().toISOString() })) } : {}),
       ...(this.#opts.maxResponseBytes !== undefined ? { maxResponseBytes: this.#opts.maxResponseBytes } : {}),
       ...(this.#opts.captureBodies !== undefined ? { captureBodies: this.#opts.captureBodies } : {}),
     });
 
     try {
-      await engine.run(selection.applicable);
+      await engine.run(selection.applicable.filter((p) => !completed.has(p.manifest.id)));
     } finally {
       await fixtures.teardownAll();
     }

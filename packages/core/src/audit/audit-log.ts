@@ -8,7 +8,7 @@ import type { HttpExchange } from "@perimeter/sdk";
  * Every request/response is written as one NDJSON line, tagged with the probe,
  * identity, and tenant it was issued under, and stamped with a content address.
  * The log IS the reproduction artifact and the compliance trail. Interrupted
- * scans resume from it (spec §4.1 responsibility 5).
+ * scans retain it alongside the explicit probe-completion checkpoint.
  *
  * Secrets are already redacted upstream (see redaction.ts) before entries reach
  * here. Evidence never leaves the operator's machine.
@@ -42,8 +42,9 @@ export class NdjsonAuditLog implements AuditSink {
   #seq = 0;
   readonly #refs: string[] = [];
 
-  constructor(path: string) {
+  constructor(path: string, initialSequence = 0) {
     this.#path = path;
+    this.#seq = initialSequence;
   }
 
   async append(

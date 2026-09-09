@@ -78,6 +78,7 @@ export class GuardedHttpClientImpl implements GuardedHttpClient {
 
     // (1) budget — throws when exhausted
     this.#d.budget.consume();
+    await this.#d.budget.checkpoint();
 
     // (2) safety guard — throws SafetyViolation on any policy breach
     this.#d.guard.check({

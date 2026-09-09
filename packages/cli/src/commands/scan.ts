@@ -37,6 +37,7 @@ export class ScanCommand extends Command {
     description: "Gate severity: CRITICAL|HIGH|MEDIUM|LOW|INFO|none.",
   });
   seed = Option.String("--seed", { description: "Deterministic seed (overrides config)." });
+  resume = Option.Boolean("--resume", false, { description: "Resume the explicitly configured checkpoint." });
   allowMutating = Option.Boolean("--allow-mutating", false, {
     description: "Permit idempotent-write/mutating probes (default off).",
   });
@@ -47,6 +48,7 @@ export class ScanCommand extends Command {
       ...raw,
       ...(this.failOn ? { failOn: this.failOn } : {}),
       ...(this.seed ? { seed: this.seed } : {}),
+      ...(this.resume ? { resume: true } : {}),
       ...(this.allowMutating ? { allowMutating: true } : {}),
     });
 
