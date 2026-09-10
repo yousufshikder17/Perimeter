@@ -5,6 +5,7 @@ import { sqliDifferential } from "./injection/sqli-differential.js";
 import { tokenManipulation } from "./auth/token-manipulation.js";
 import { burstThrottle } from "./rate-limit/burst-throttle.js";
 import { graphqlAuthorization } from "./graphql/authorization.js";
+import { csvFormula } from "./csv/formula.js";
 
 /**
  * @perimeter/probes-standard — REST families plus reviewed GraphQL authorization.
@@ -21,9 +22,10 @@ export const STANDARD_PROBES: Probe[] = [
   tokenManipulation,
   burstThrottle,
   graphqlAuthorization,
+  csvFormula,
 ];
 
 export const perimeter: ProbePackage["perimeter"] = { probes: STANDARD_PROBES };
 
 // Named exports for direct import / testing
-export { crossTenantRead, sequentialIdSwap, sqliDifferential, tokenManipulation, burstThrottle, graphqlAuthorization };
+export { crossTenantRead, sequentialIdSwap, sqliDifferential, tokenManipulation, burstThrottle, graphqlAuthorization, csvFormula };

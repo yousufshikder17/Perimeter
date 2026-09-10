@@ -132,9 +132,11 @@ describe("§8 acceptance scenario (end-to-end)", () => {
     expect(byFamily("rate-limit")).toHaveLength(0);
     expect(registry.passes.some((p) => p.family === "rate-limit")).toBe(true);
 
-    // Every REST probe applied; this target intentionally has no GraphQL query.
+    // This target intentionally has no GraphQL query or CSV export contract.
     expect(registry.skipped).toEqual([{
       probeId: "graphql/authorization", reason: 'no endpoint provides capability "graphqlQuery"',
+    }, {
+      probeId: "csv/formula", reason: 'no endpoint provides capability "csvExport"',
     }]);
   });
 });

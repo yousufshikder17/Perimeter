@@ -21,6 +21,7 @@ export const KNOWN_FAMILIES = [
   "auth",
   "rate-limit",
   "graphql",
+  "csv",
 ] as const;
 export const ProbeFamily = z.string();
 export type ProbeFamily = z.infer<typeof ProbeFamily>;

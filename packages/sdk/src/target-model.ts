@@ -183,6 +183,15 @@ export const EndpointSchema = z
     path: z.string(),
     /** A reviewed GraphQL query transported by GET or POST, not a REST route. */
     graphql: GraphqlModelSchema.optional(),
+    /** Reviewed CSV export of an engine-created harmless formula canary. */
+    csv: z.object({
+      identity: IdentityRef,
+      column: z.string().min(1),
+      idColumn: z.string().min(1),
+      fixtureField: z.string().min(1),
+      delimiter: z.enum([",", ";", "\t"]).default(","),
+      canary: z.enum(["=1+1", "+1+1", "-1+1", "@SUM(1,1)"]).default("=1+1"),
+    }).strict().optional(),
     /** Must enforce tenant isolation → tenant-isolation probe target. */
     tenantScoped: z.boolean().default(false),
     /** Present → IDOR probe target. */
@@ -204,6 +213,12 @@ export const EndpointSchema = z
   })
   .strict()
   .superRefine((endpoint, ctx) => {
+    if (endpoint.csv && (endpoint.method !== "GET" || endpoint.graphql || !endpoint.objectRef ||
+        endpoint.creates || endpoint.csv.column === endpoint.csv.idColumn ||
+        !/^\/(?!\/)[^?#\\]*$/.test(endpoint.path) ||
+        /[{}]/.test(endpoint.path.replace(`{${endpoint.objectRef?.param}}`, "scratch")))) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["csv"], message: "CSV requires a GET export, distinct data/ID columns, objectRef, and an origin-relative path with at most its object ID placeholder" });
+    }
     if (endpoint.graphql) {
       if (!["GET", "POST"].includes(endpoint.method) || !/^\/(?!\/)[^?#{}]*$/.test(endpoint.path) || endpoint.creates || endpoint.fixture) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["graphql"], message: "GraphQL needs GET/POST and a literal origin-relative path, with no factory annotations" });
@@ -271,6 +286,14 @@ export const TargetModelSchema = z
   })
   .strict()
   .superRefine((model, ctx) => {
+    for (const endpoint of model.endpoints.filter((e) => e.csv)) {
+      const csv = endpoint.csv!;
+      const factories = model.endpoints.filter((e) => e.creates === endpoint.objectRef?.kind);
+      if (!model.identities.some((i) => i.ref === csv.identity) || factories.length !== 1 ||
+          factories[0]?.method !== "POST" || factories[0]?.fixture?.body?.[csv.fixtureField] !== csv.canary) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endpoints"], message: "CSV requires a modeled identity and one POST scratch factory whose fixture field equals the harmless canary" });
+      }
+    }
     for (const endpoint of model.endpoints) {
       if (!endpoint.graphql) continue;
       const owner = model.identities.find((i) => i.ref === endpoint.graphql!.ownerIdentity);
