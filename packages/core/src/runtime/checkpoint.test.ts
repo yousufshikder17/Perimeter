@@ -84,7 +84,7 @@ it("resumes completed results, retries interrupted probes, and retains request c
     } finally { failure.mockRestore(); }
     await expect(new Orchestrator(parseScanConfig({ ...config, checkpoint: config.output.auditLog }), probes).run())
       .rejects.toThrow("separate");
-    await expect(new Orchestrator(config, [{ ...probes[0]!, manifest: { ...probes[0]!.manifest,
+    await expect(new Orchestrator(parseScanConfig({ ...config, allowMutating: true }), [{ ...probes[0]!, manifest: { ...probes[0]!.manifest,
       safety: { class: "idempotent-write", maxRequests: 1, destructive: false } } }]).run()).rejects.toThrow("read-only");
   } finally {
     server.closeAllConnections();

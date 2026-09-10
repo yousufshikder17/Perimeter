@@ -56,7 +56,8 @@ export class ExecutionEngine {
     // reference engine-created, disposable objects instead of real records (§4.3).
     await this.#provisionFixtures(probes);
 
-    const queue = [...probes];
+    // Read controls settle before writes; write probes never race shared fixtures.
+    const queue = probes.filter((p) => p.manifest.safety.class === "read-only");
     const workers = Array.from({ length: Math.min(this.#d.concurrency, queue.length || 1) }, () =>
       this.#worker(queue),
     );
@@ -64,6 +65,10 @@ export class ExecutionEngine {
     const results = await Promise.allSettled(workers);
     for (const result of results) {
       if (result.status === "rejected") throw result.reason;
+    }
+    for (const probe of probes.filter((p) => p.manifest.safety.class !== "read-only")) {
+      if (this.#d.signal.aborted) return;
+      await this.#runOne(probe);
     }
   }
 
@@ -148,6 +153,7 @@ export class ExecutionEngine {
       allowedHosts: new Set([new URL(this.#d.target.baseUrl).host]),
       allowMutating: this.#d.allowMutating,
       scratchObjectIds: this.#d.fixtures.scratchObjectIds(),
+      isScratchWrite: (method, url, id) => this.#d.fixtures.permitsWrite(method, url, id),
     });
     const http = new GuardedHttpClientImpl({
       baseUrl: this.#d.target.baseUrl,

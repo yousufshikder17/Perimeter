@@ -6,6 +6,7 @@ import type {
   ScratchFixture,
   TargetModel,
 } from "@perimeter/sdk";
+import { scratchPath } from "@perimeter/sdk";
 
 /**
  * Scratch fixture management (spec §4.3). When a probe needs "an object owned by
@@ -59,6 +60,17 @@ export class FixtureManager {
   /** Live set of scratch object ids — feeds the SafetyGuard write allow-list. */
   scratchObjectIds(): Set<string> {
     return this.#ids;
+  }
+
+  /** A claimed scratch ID alone never authorizes a write to a different record. */
+  permitsWrite(method: string, url: string, id: string): boolean {
+    return this.#created.some((object) => object.id === id && this.#target.endpoints.some((endpoint) => {
+      if (endpoint.graphql || endpoint.method !== method || endpoint.objectRef?.kind !== object.kind) return false;
+      const path = scratchPath(endpoint, id);
+      if (!path) return false;
+      const expected = new URL(path, this.#target.baseUrl);
+      return expected.pathname === path && expected.href === url;
+    }));
   }
 
   /** Read-only view handed to probes via ProbeContext (spec §4.3). */
@@ -120,12 +132,13 @@ export class FixtureManager {
         continue;
       }
       try {
-        await this.#http.request({
+        const response = await this.#http.request({
           method: "DELETE",
           url: obj.teardown.path,
           as: obj.ownerIdentity,
           targetsScratchObjectId: obj.id,
         });
+        if (response.status < 200 || response.status >= 300) throw new Error(`cleanup returned ${response.status}`);
       } catch (err) {
         this.#logger?.warn("scratch teardown failed (ignored)", { id: obj.id, error: String(err) });
       }
@@ -140,7 +153,8 @@ export class FixtureManager {
       (e) => e.method === "DELETE" && e.objectRef?.kind === kind,
     );
     if (!del?.objectRef) return undefined;
-    const path = del.path.replace(`{${del.objectRef.param}}`, encodeURIComponent(id));
+    const path = scratchPath(del, id);
+    if (!path) return undefined;
     return { endpointId: del.id, path };
   }
 

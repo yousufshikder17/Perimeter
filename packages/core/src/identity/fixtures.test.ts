@@ -52,6 +52,7 @@ describe("configured scratch factories", () => {
           allowedHosts: new Set([new URL(model.baseUrl).host]), allowMutating: false,
           scratchObjectIds: scratchIds, fixtureFactoryPaths: FixtureManager.factoryPaths(model),
           allowScratchWrites: true,
+          isScratchWrite: (method, url, id): boolean => manager.permitsWrite(method, url, id),
         }),
         limiter: new RateLimiter({ globalRps: 100, perHostRps: 100, burst: 10 }, new SystemClock()),
         budget, audit, scanId: "fixture-payload", signal: new AbortController().signal,
@@ -78,6 +79,10 @@ describe("configured scratch factories", () => {
       expect(mapped.id).toBe("vendor/123");
       expect(manager.view().ofKind("invoice").map((fixture) => fixture.id)).toContain(mapped.id);
       expect(scratchIds.has(mapped.id)).toBe(true);
+      expect(manager.permitsWrite("DELETE", `${model.baseUrl}/api/invoices/vendor%2F123`, mapped.id)).toBe(true);
+      expect(manager.permitsWrite("DELETE", `${model.baseUrl}/api/invoices/real`, mapped.id)).toBe(false);
+      expect(manager.permitsWrite("PATCH", `${model.baseUrl}/api/invoices/vendor%2F123`, mapped.id)).toBe(false);
+      expect(manager.permitsWrite("DELETE", `${model.baseUrl}/other/vendor%2F123`, mapped.id)).toBe(false);
       await manager.teardownAll();
       expect(deleted).toEqual(["/api/invoices/vendor%2F123"]);
       expect(scratchIds.size).toBe(0);

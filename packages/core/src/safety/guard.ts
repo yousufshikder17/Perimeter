@@ -25,6 +25,8 @@ export interface GuardPolicy {
   allowMutating: boolean;
   /** Ids of engine-created scratch objects that writes may target (spec §4.3). */
   scratchObjectIds: ReadonlySet<string>;
+  /** Engine-owned binding of the method and exact URL to that scratch record. */
+  isScratchWrite?: (method: string, url: string, id: string) => boolean;
   /**
    * Pathnames the engine may POST to in order to CREATE scratch fixtures — the
    * `creates:` factory endpoints (spec §4.3, §5.3). Set ONLY on the engine's
@@ -130,7 +132,8 @@ export class SafetyGuard {
 
     const targetsTrackedScratch =
       !!input.targetsScratchObjectId &&
-      this.#policy.scratchObjectIds.has(input.targetsScratchObjectId);
+      this.#policy.scratchObjectIds.has(input.targetsScratchObjectId) &&
+      this.#policy.isScratchWrite?.(input.method, input.url, input.targetsScratchObjectId) === true;
 
     // Sanctioned fixture TEARDOWN / setup-owned scratch write: the setup client
     // may write to the scratch objects it created, without --allow-mutating.

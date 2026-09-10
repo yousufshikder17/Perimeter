@@ -19,6 +19,7 @@ function makePolicy(o: {
     allowedHosts: new Set(o.hosts ?? ["target.example"]),
     allowMutating: o.allowMutating ?? false,
     scratchObjectIds: new Set(o.scratchIds ?? []),
+    isScratchWrite: (method: string, url: string, id: string) => method === "PUT" && url === `https://target.example/api/${encodeURIComponent(id)}`,
   };
 }
 
@@ -62,7 +63,7 @@ describe("read-only by default (spec §3.2 rule 2)", () => {
     expect(() =>
       guard({ allowMutating: true }).check({
         method: "PUT",
-        url: "https://target.example/api/x",
+        url: "https://target.example/api/scratch-1",
         probeSafetyClass: "idempotent-write",
         payloadParts: ["{}"],
       }),
@@ -73,12 +74,23 @@ describe("read-only by default (spec §3.2 rule 2)", () => {
     expect(() =>
       guard({ allowMutating: true, scratchIds: ["scratch-1"] }).check({
         method: "PUT",
-        url: "https://target.example/api/x",
+        url: "https://target.example/api/scratch-1",
         probeSafetyClass: "idempotent-write",
         payloadParts: ["{}"],
         targetsScratchObjectId: "scratch-1",
       }),
     ).not.toThrow();
+  });
+
+  it("rejects a real record, wrong verb, query, or missing binding despite a claimed scratch ID", () => {
+    for (const [method, url] of [["PUT", "https://target.example/api/real"], ["PATCH", "https://target.example/api/scratch-1"],
+      ["PUT", "https://target.example/api/scratch-1?all=true"]]) {
+      expect(() => guard({ allowMutating: true, scratchIds: ["scratch-1"] }).check({ method: method!, url: url!,
+        probeSafetyClass: "idempotent-write", payloadParts: [], targetsScratchObjectId: "scratch-1" })).toThrow(SafetyViolation);
+    }
+    expect(() => new SafetyGuard({ allowedHosts: new Set(["target.example"]), allowMutating: true,
+      scratchObjectIds: new Set(["scratch-1"]) }).check({ method: "PUT", url: "https://target.example/api/scratch-1",
+      probeSafetyClass: "idempotent-write", payloadParts: [], targetsScratchObjectId: "scratch-1" })).toThrow(SafetyViolation);
   });
 });
 

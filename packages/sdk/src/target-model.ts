@@ -176,6 +176,13 @@ export const GraphqlModelSchema = z.object({
   otherIdentity: IdentityRef,
 }).strict();
 
+const ScalarSchema = z.union([z.string().min(1).max(256), z.number().finite(), z.boolean()]);
+const FieldCheckSchema = z.object({
+  field: z.string().regex(/^[A-Za-z][A-Za-z0-9_]*$/).refine((name) => !["constructor", "prototype"].includes(name)),
+  value: ScalarSchema,
+  resultPath: z.array(z.string().min(1)).min(1).max(8),
+}).strict();
+
 export const EndpointSchema = z
   .object({
     id: z.string(),
@@ -183,6 +190,14 @@ export const EndpointSchema = z
     path: z.string(),
     /** A reviewed GraphQL query transported by GET or POST, not a REST route. */
     graphql: GraphqlModelSchema.optional(),
+    /** Explicit non-destructive PATCH contract on a disposable scratch record. */
+    massAssignment: z.object({
+      identity: IdentityRef,
+      readEndpointId: z.string().min(1),
+      resultIdPath: z.array(z.string().min(1)).min(1).max(8).default(["id"]),
+      control: FieldCheckSchema,
+      protected: FieldCheckSchema,
+    }).strict().optional(),
     /** Reviewed CSV export of an engine-created harmless formula canary. */
     csv: z.object({
       identity: IdentityRef,
@@ -213,6 +228,13 @@ export const EndpointSchema = z
   })
   .strict()
   .superRefine((endpoint, ctx) => {
+    if (endpoint.massAssignment && (endpoint.method !== "PATCH" || endpoint.graphql || endpoint.csv ||
+        endpoint.creates || endpoint.auth !== "required" || !scratchPath(endpoint, "scratch") ||
+        endpoint.massAssignment.control.field === endpoint.massAssignment.protected.field ||
+        new Set([endpoint.massAssignment.resultIdPath, endpoint.massAssignment.control.resultPath,
+          endpoint.massAssignment.protected.resultPath].map((p) => JSON.stringify(p))).size !== 3)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["massAssignment"], message: "Mass assignment requires authenticated scratch PATCH, distinct control/protected fields and distinct result/ID paths" });
+    }
     if (endpoint.csv && (endpoint.method !== "GET" || endpoint.graphql || !endpoint.objectRef ||
         endpoint.creates || endpoint.csv.column === endpoint.csv.idColumn ||
         !/^\/(?!\/)[^?#\\]*$/.test(endpoint.path) ||
@@ -286,6 +308,19 @@ export const TargetModelSchema = z
   })
   .strict()
   .superRefine((model, ctx) => {
+    for (const endpoint of model.endpoints.filter((e) => e.massAssignment)) {
+      const mass = endpoint.massAssignment!;
+      const readers = model.endpoints.filter((e) => e.id === mass.readEndpointId);
+      const reader = readers[0];
+      const factories = model.endpoints.filter((e) => e.creates === endpoint.objectRef?.kind);
+      const cleanup = model.endpoints.filter((e) => e.method === "DELETE" && e.objectRef?.kind === endpoint.objectRef?.kind);
+      if (!model.identities.some((i) => i.ref === mass.identity) || model.endpoints.filter((e) => e.id === endpoint.id).length !== 1 ||
+          readers.length !== 1 || !reader || reader.method !== "GET" || reader.graphql || reader.csv || !scratchPath(reader, "scratch") ||
+          reader.objectRef?.kind !== endpoint.objectRef?.kind || factories.length !== 1 || factories[0]?.method !== "POST" ||
+          !/^\/(?!\/)[^?#{}\\]*$/.test(factories[0]?.path ?? "") || cleanup.length !== 1 || !scratchPath(cleanup[0]!, "scratch")) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endpoints"], message: "Mass assignment requires a modeled identity, unique endpoint IDs, same-kind scratch GET, one POST factory and one DELETE cleanup route" });
+      }
+    }
     for (const endpoint of model.endpoints.filter((e) => e.csv)) {
       const csv = endpoint.csv!;
       const factories = model.endpoints.filter((e) => e.creates === endpoint.objectRef?.kind);
@@ -331,6 +366,16 @@ export type TargetModel = z.infer<typeof TargetModelSchema>;
 
 export function parseTargetModel(input: unknown): TargetModel {
   return TargetModelSchema.parse(input);
+}
+
+/** Bind an object ID to exactly one whole path segment; never normalize traversal. */
+export function scratchPath(endpoint: { path: string; objectRef?: ObjectRef | undefined }, id: string): string | undefined {
+  if (!endpoint.objectRef || !id || id === "." || id === ".." || !/^\/(?!\/)[^?#\\]*$/.test(endpoint.path)) return undefined;
+  const segments = endpoint.path.split("/");
+  const placeholder = `{${endpoint.objectRef.param}}`;
+  if (segments.filter((segment) => segment === placeholder).length !== 1 || segments.some((s) => s === "." || s === "..")) return undefined;
+  const path = endpoint.path.replace(placeholder, encodeURIComponent(id));
+  return /[{}]/.test(path) ? undefined : path;
 }
 
 /** Reuses guarded HTTP: GraphQL never introduces another network client. */

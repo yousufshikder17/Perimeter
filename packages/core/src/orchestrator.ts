@@ -52,6 +52,13 @@ export class Orchestrator {
     const target = await loadTargetModel(this.#config.target);
     this.#assertAuthorized(target.authorization.environment, this.#opts.logger ?? new ConsoleLogger("info"));
     const selection = selectProbes(this.#probes, target, this.#config);
+    if (!this.#config.allowMutating) {
+      selection.applicable = selection.applicable.filter((probe) => {
+        if (probe.manifest.safety.class === "read-only" && !probe.manifest.safety.destructive) return true;
+        selection.skipped.push({ probeId: probe.manifest.id, reason: "write probe requires --allow-mutating" });
+        return false;
+      });
+    }
     let checkpoint: ScanCheckpoint | undefined;
     if (this.#config.checkpoint) {
       if (selection.applicable.some((p) => p.manifest.safety.class !== "read-only" || p.manifest.safety.destructive)) {
@@ -126,6 +133,7 @@ export class Orchestrator {
         allowedHosts: new Set([new URL(target.baseUrl).host]),
         allowMutating: this.#config.allowMutating,
         scratchObjectIds: scratchIds,
+        isScratchWrite: (method, url, id): boolean => fixtures.permitsWrite(method, url, id),
         fixtureFactoryPaths: FixtureManager.factoryPaths(target),
         allowScratchWrites: true,
       }),
