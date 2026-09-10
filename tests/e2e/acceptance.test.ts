@@ -137,6 +137,8 @@ describe("§8 acceptance scenario (end-to-end)", () => {
       probeId: "graphql/authorization", reason: 'no endpoint provides capability "graphqlQuery"',
     }, {
       probeId: "csv/formula", reason: 'no endpoint provides capability "csvExport"',
+    }, {
+      probeId: "mass-assignment/protected-field", reason: 'no endpoint provides capability "massAssignment"',
     }]);
   });
 });

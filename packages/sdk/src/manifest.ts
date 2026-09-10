@@ -22,6 +22,7 @@ export const KNOWN_FAMILIES = [
   "rate-limit",
   "graphql",
   "csv",
+  "mass-assignment",
 ] as const;
 export const ProbeFamily = z.string();
 export type ProbeFamily = z.infer<typeof ProbeFamily>;
@@ -29,8 +30,8 @@ export type ProbeFamily = z.infer<typeof ProbeFamily>;
 /**
  * Safety classification (spec §3.1). The core REJECTS `destructive: true` or a
  * `class` of "mutating" unless the operator passes `--allow-mutating` AND the
- * Target Model authorization block opts in. The standard library ships zero
- * mutating probes.
+ * Target Model authorizes testing. The standard mass-assignment probe uses
+ * idempotent-write and also requires explicit --allow-mutating.
  */
 export const SafetyClass = z.enum([
   "read-only",

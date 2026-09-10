@@ -6,7 +6,7 @@ has no path to the network except the guarded client.
 
 | Threat | Engine control |
 |---|---|
-| **Data modification** | Read-only default. Writes require manifest `safety.class` + `--allow-mutating` + authorization opt-in, and must hit engine-created scratch objects. Standard library ships zero mutating probes. |
+| **Data modification** | Read-only default. Probe writes require manifest `safety.class` + `--allow-mutating` + authorized Target Model. Method and exact URL must bind to an engine-created scratch object. Mass-assignment uses idempotent scratch writes; writes run sequentially after reads and cannot use checkpoint replay. |
 | **Data exfiltration** | Egress allow-listed to the modeled target host(s) only. No outbound channel elsewhere; evidence stays local. |
 | **Denial of service** | Global + per-host token-bucket limiter, per-probe budgets, concurrency caps, bounded payloads. Rate-limit probes self-terminate on first observed throttle. Time-based injection is opt-in and bounded. |
 | **Collateral on prod** | Mandatory `authorization` block; production requires extra confirmation and forces the most conservative rate profile. |

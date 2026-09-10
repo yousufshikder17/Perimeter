@@ -70,6 +70,8 @@ function endpointHasCapability(
 ): boolean {
   if (e.graphql) return cap === "graphqlQuery";
   switch (cap) {
+    case "massAssignment":
+      return e.massAssignment !== undefined;
     case "csvExport":
       return e.csv !== undefined;
     case "readsTenantScopedObject":

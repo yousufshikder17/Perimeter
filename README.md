@@ -33,8 +33,8 @@ surface — and complement, rather than replace, a DAST.
 - **The probe library is the moat** — a pluggable probe/adapter pattern; every
   vulnerability class shares one lifecycle contract. Contributor experience is a
   first-class concern.
-- **Safe by construction** — probes never modify data, exfiltrate, or DoS.
-  Read-only by default, rate-limited by default, audited always. Destructive
+- **Safe by construction** — read-only by default; explicitly enabled write
+  probes target engine-created scratch records only. Rate-limited and audited. Destructive
   capability is not a flag you can flip in core.
 - **Extensible architecture** — the engine, SDK, CLI, and probe library share
   explicit contracts so new capabilities can be added without bypassing safety.
@@ -63,7 +63,7 @@ packages/
   core/               @perimeter/core             — orchestrator, engine, safety guard, rate limiter,
                                                     audit log, identity/fixtures, discovery, reporters, harness
   probe-linter/       @perimeter/probe-linter     — static §3.2 safety-contract enforcement
-  probes-standard/    @perimeter/probes-standard  — the five standard families (plugins)
+  probes-standard/    @perimeter/probes-standard  — standard probe families (plugins)
   cli/                @perimeter/cli              — scan / model / probe / report
 apps/
   reference-target/   @perimeter/reference-target — vulnerable Hono + Postgres-RLS SaaS for tests
@@ -73,7 +73,7 @@ tests/safety/         the gated safety-invariant suite (spec §8.9)
 examples/             target.yaml, scan.yaml, baseline.json
 ```
 
-## The five standard probe families (spec §3.3)
+## Standard probe families
 
 | Family | Core question |
 |---|---|
@@ -82,6 +82,12 @@ examples/             target.yaml, scan.yaml, baseline.json
 | **injection** | Does untrusted input reach an interpreter? (non-destructive SQLi-first) |
 | **auth** | Are authentication/authorization boundaries actually enforced? |
 | **rate-limit** | Are abuse-sensitive endpoints actually throttled? |
+| **graphql** | Do reviewed queries enforce protected-data authorization? |
+| **csv** | Does a harmless scratch formula remain unneutralized in an export? |
+| **mass-assignment** | Can a reviewed protected field be persisted through a scratch-object update? |
+
+See [CSV export checks](./docs/csv.md) and [mass-assignment checks](./docs/mass-assignment.md)
+for required annotations, evidence boundaries and opt-in behavior.
 
 ## Safety, in one line
 
