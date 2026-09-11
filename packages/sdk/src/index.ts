@@ -11,6 +11,7 @@ export const SDK_VERSION = "0.1.0" as const;
 // Probe contract & lifecycle
 export * from "./probe.js";
 export * from "./context.js";
+export * from "./grpc.js";
 
 // Static manifest & families
 export * from "./manifest.js";

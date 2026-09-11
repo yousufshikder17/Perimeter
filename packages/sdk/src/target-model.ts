@@ -190,6 +190,17 @@ export const EndpointSchema = z
     path: z.string(),
     /** A reviewed GraphQL query transported by GET or POST, not a REST route. */
     graphql: GraphqlModelSchema.optional(),
+    /** One reviewed read-only unary RPC; proto text is bundled, never fetched. */
+    grpc: z.object({
+      readOnly: z.literal(true),
+      proto: z.string().min(1).max(65536),
+      origin: z.string().url().optional(),
+      request: z.record(JsonValueSchema).default({}),
+      resultPath: z.array(z.string().min(1)).min(1).max(16),
+      ownerIdentity: IdentityRef,
+      otherIdentity: IdentityRef,
+      deadlineMs: z.number().int().min(100).max(30000).default(5000),
+    }).strict().optional(),
     /** Explicit non-destructive PATCH contract on a disposable scratch record. */
     massAssignment: z.object({
       identity: IdentityRef,
@@ -228,6 +239,11 @@ export const EndpointSchema = z
   })
   .strict()
   .superRefine((endpoint, ctx) => {
+    if (endpoint.grpc && (endpoint.method !== "POST" || !/^\/[A-Za-z_][A-Za-z0-9_.]*\/[A-Za-z_][A-Za-z0-9_]*$/.test(endpoint.path) ||
+        endpoint.graphql || endpoint.csv || endpoint.massAssignment || endpoint.creates || endpoint.fixture ||
+        JSON.stringify(endpoint.grpc.request).length > 16384)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["grpc"], message: "gRPC requires a reviewed POST /package.Service/Method with bounded JSON and no other protocol/factory annotations" });
+    }
     if (endpoint.massAssignment && (endpoint.method !== "PATCH" || endpoint.graphql || endpoint.csv ||
         endpoint.creates || endpoint.auth !== "required" || !scratchPath(endpoint, "scratch") ||
         endpoint.massAssignment.control.field === endpoint.massAssignment.protected.field ||
@@ -308,6 +324,21 @@ export const TargetModelSchema = z
   })
   .strict()
   .superRefine((model, ctx) => {
+    for (const endpoint of model.endpoints.filter((e) => e.grpc)) {
+      const grpc = endpoint.grpc!;
+      const owner = model.identities.find((i) => i.ref === grpc.ownerIdentity);
+      const other = model.identities.find((i) => i.ref === grpc.otherIdentity);
+      let originValid = false;
+      try {
+        const url = new URL(grpc.origin ?? model.baseUrl);
+        originValid = ["http:", "https:"].includes(url.protocol) && !url.username && !url.password && !url.search && !url.hash &&
+          url.pathname === "/" && (url.protocol === "https:" || model.authorization.environment === "local");
+      } catch { /* Invalid origin is a model error, never a resolver fallback. */ }
+      if (!originValid || !owner || !other || owner.ref === other.ref || (endpoint.tenantScoped && owner.tenant === other.tenant) ||
+          model.endpoints.filter((e) => e.id === endpoint.id).length !== 1) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endpoints"], message: "gRPC requires a unique endpoint ID, a literal HTTP(S) origin (TLS outside local), and distinct modeled identities/tenants" });
+      }
+    }
     for (const endpoint of model.endpoints.filter((e) => e.massAssignment)) {
       const mass = endpoint.massAssignment!;
       const readers = model.endpoints.filter((e) => e.id === mass.readEndpointId);
