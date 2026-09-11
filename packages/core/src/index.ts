@@ -7,6 +7,7 @@
  */
 
 export const CORE_VERSION = "0.1.0" as const;
+export { startCallbackCollector, CallbackReceiptSchema } from "./callbacks/collector.js";
 
 // Orchestration & engine
 export { Orchestrator, type OrchestratorOptions } from "./orchestrator.js";
