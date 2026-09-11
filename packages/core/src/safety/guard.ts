@@ -15,6 +15,8 @@ import { inspectOutboundPayload, isReadOnlyMethod } from "./outbound-inspector.j
  */
 
 export interface GuardPolicy {
+  /** RPC routes are never dispatched through the generic HTTP write path. */
+  grpcEndpoints?: readonly string[];
   /** Exact reviewed query documents; only these can use GraphQL query POSTs. */
   graphqlEndpoints?: ReadonlyArray<{ url: string; query: string }>;
   /** Exact POST URLs for the engine-owned authentication client only. */
@@ -73,6 +75,11 @@ export class SafetyGuard {
   /** Throws SafetyViolation if the request is not permitted. Called on EVERY egress. */
   check(input: GuardCheckInput): void {
     this.#checkHost(input.url);
+    const url = new URL(input.url);
+    if (this.#policy.grpcEndpoints?.some((address) => {
+      const endpoint = new URL(address);
+      return endpoint.origin === url.origin && endpoint.pathname === url.pathname;
+    })) throw new SafetyViolation("gRPC routes require the guarded unary transport");
     if (!this.#checkGraphql(input)) this.#checkMethod(input);
     this.#checkPayload(input.payloadParts);
   }

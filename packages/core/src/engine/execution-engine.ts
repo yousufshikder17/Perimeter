@@ -6,6 +6,7 @@ import { MutableBudget } from "../runtime/budget.js";
 import { CheckpointError } from "../runtime/checkpoint.js";
 import { DeterministicRng } from "../runtime/rng.js";
 import { GuardedHttpClientImpl } from "../http/guarded-http-client.js";
+import { GuardedGrpcClientImpl } from "../grpc/client.js";
 import type { AuditSink } from "../audit/audit-log.js";
 import type { IdentityManager } from "../identity/identity-manager.js";
 import { AuthenticationError } from "../identity/identity-manager.js";
@@ -148,6 +149,8 @@ export class ExecutionEngine {
   #buildContext(probe: Probe): ProbeContext {
     const budget = new MutableBudget(probe.manifest.safety.maxRequests, this.#d.globalBudget);
     const guard = new SafetyGuard({
+      grpcEndpoints: this.#d.target.endpoints.filter((e) => e.grpc)
+        .map((e) => new URL(e.path, e.grpc!.origin ?? this.#d.target.baseUrl).href),
       graphqlEndpoints: this.#d.target.endpoints.filter((e) => !!e.graphql)
         .map((e) => ({ url: new URL(e.path, this.#d.target.baseUrl).href, query: e.graphql!.query })),
       allowedHosts: new Set([new URL(this.#d.target.baseUrl).host]),
@@ -173,6 +176,11 @@ export class ExecutionEngine {
     return {
       target: this.#d.target,
       http,
+      grpc: new GuardedGrpcClientImpl({ target: this.#d.target, probeId: probe.manifest.id, scanId: this.#d.scanId,
+        budget, limiter: this.#d.limiter, audit: this.#d.audit, fixtures: this.#d.fixtures.view(),
+        resolveIdentity: (ref) => this.#d.identities.get(ref), signal: this.#d.signal,
+        ...(this.#d.captureBodies !== undefined ? { captureBodies: this.#d.captureBodies } : {}),
+        ...(this.#d.maxResponseBytes !== undefined ? { maxResponseBytes: this.#d.maxResponseBytes } : {}) }),
       fixtures: this.#d.fixtures.view(),
       budget,
       logger: this.#d.logger.child({ probe: probe.manifest.id }),

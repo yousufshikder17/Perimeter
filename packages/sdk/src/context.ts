@@ -1,5 +1,6 @@
 import type { TargetModel, IdentityRef } from "./target-model.js";
 import type { Finding, Pass, HttpExchange } from "./finding.js";
+import type { GuardedGrpcClient } from "./grpc.js";
 
 /**
  * The runtime surface a probe is allowed to touch (spec §3.2).
@@ -150,6 +151,8 @@ export interface ProbeContext {
   readonly target: TargetModel;
   /** The ONLY network egress (spec §3.2 rule 1). */
   readonly http: GuardedHttpClient;
+  /** Engine-owned unary RPC transport; absent in legacy/custom harness contexts. */
+  readonly grpc?: GuardedGrpcClient;
   /** Scratch objects the engine provisioned for this scan (spec §4.3). */
   readonly fixtures: FixtureView;
   /** Mint/fetch credentials for a tenant/role. */

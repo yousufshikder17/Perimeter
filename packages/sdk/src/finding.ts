@@ -34,6 +34,8 @@ export const HttpExchangeSchema = z
   .object({
     /** Opaque id, referenceable from `differential` and the audit log. */
     ref: z.string(),
+    /** gRPC exchanges use native status codes rather than HTTP status codes. */
+    protocol: z.literal("grpc").optional(),
     request: z.object({
       method: z.string(),
       url: z.string(),

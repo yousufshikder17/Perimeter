@@ -26,6 +26,7 @@ export { inspectOutboundPayload, isReadOnlyMethod } from "./safety/outbound-insp
 
 // HTTP
 export { GuardedHttpClientImpl, type GuardedHttpClientDeps } from "./http/guarded-http-client.js";
+export { GuardedGrpcClientImpl, type GrpcClientDeps } from "./grpc/client.js";
 
 // Audit & evidence
 export {
