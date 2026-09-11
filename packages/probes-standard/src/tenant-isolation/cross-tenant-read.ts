@@ -14,7 +14,7 @@ export const crossTenantRead: Probe = {
   manifest: {
     id: "tenant-isolation/cross-tenant-read",
     family: "tenant-isolation",
-    version: "0.1.1",
+    version: "0.1.2",
     schemaVersion: "1",
     requires: {
       minTenants: 2,
@@ -28,7 +28,7 @@ export const crossTenantRead: Probe = {
     if (ctx.target.tenancy.tenants.length < 2) {
       return skip("needs ≥2 modeled tenants to cross a boundary");
     }
-    const targets = ctx.target.endpoints.filter((e) => !e.graphql && e.tenantScoped && e.method === "GET" && e.objectRef);
+    const targets = ctx.target.endpoints.filter((e) => !e.grpc && !e.graphql && e.tenantScoped && e.method === "GET" && e.objectRef);
     if (targets.length === 0) {
       return skip("no tenant-scoped GET endpoint with an objectRef to probe");
     }

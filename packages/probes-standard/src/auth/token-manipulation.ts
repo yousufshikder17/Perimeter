@@ -17,14 +17,14 @@ export const tokenManipulation: Probe = {
   manifest: {
     id: "auth/token-manipulation",
     family: "auth",
-    version: "0.2.1",
+    version: "0.2.2",
     schemaVersion: "1",
     requires: { endpoints: ["authRequired"] },
     safety: { class: "read-only", maxRequests: 30, destructive: false },
   },
 
   async plan(ctx): Promise<ProbePlan | ReturnType<typeof skip>> {
-    const targets = ctx.target.endpoints.filter((e) => !e.graphql && e.auth === "required" && e.method === "GET");
+    const targets = ctx.target.endpoints.filter((e) => !e.grpc && !e.graphql && e.auth === "required" && e.method === "GET");
     if (targets.length === 0) return skip("no auth-required GET endpoint to test");
     return {
       probeId: this.manifest.id,

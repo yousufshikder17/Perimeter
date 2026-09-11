@@ -16,14 +16,14 @@ export const burstThrottle: Probe = {
   manifest: {
     id: "rate-limit/burst-throttle",
     family: "rate-limit",
-    version: "0.1.1",
+    version: "0.1.2",
     schemaVersion: "1",
     requires: { endpoints: ["rateSensitive"] },
     safety: { class: "read-only", maxRequests: BURST_CEILING + 1, destructive: false },
   },
 
   async plan(ctx): Promise<ProbePlan | ReturnType<typeof skip>> {
-    const targets = ctx.target.endpoints.filter((e) => !e.graphql && e.rateSensitive);
+    const targets = ctx.target.endpoints.filter((e) => !e.grpc && !e.graphql && e.rateSensitive);
     if (targets.length === 0) return skip("no rate-sensitive endpoint modeled");
     return {
       probeId: this.manifest.id,

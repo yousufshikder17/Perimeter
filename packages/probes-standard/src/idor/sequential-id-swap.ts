@@ -13,14 +13,14 @@ export const sequentialIdSwap: Probe = {
   manifest: {
     id: "idor/sequential-id-swap",
     family: "idor",
-    version: "0.1.1",
+    version: "0.1.2",
     schemaVersion: "1",
     requires: { identities: ["tenantA.user"], endpoints: ["hasObjectRef", "authRequired"] },
     safety: { class: "read-only", maxRequests: 30, destructive: false },
   },
 
   async plan(ctx): Promise<ProbePlan | ReturnType<typeof skip>> {
-    const targets = ctx.target.endpoints.filter((e) => !e.graphql && e.objectRef && e.method === "GET");
+    const targets = ctx.target.endpoints.filter((e) => !e.grpc && !e.graphql && e.objectRef && e.method === "GET");
     if (targets.length === 0) return skip("no endpoint with an objectRef to enumerate");
     return {
       probeId: this.manifest.id,

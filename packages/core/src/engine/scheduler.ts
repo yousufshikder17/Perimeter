@@ -68,6 +68,7 @@ function endpointHasCapability(
   e: TargetModel["endpoints"][number],
   cap: string,
 ): boolean {
+  if (e.grpc) return cap === "grpcUnary";
   if (e.graphql) return cap === "graphqlQuery";
   switch (cap) {
     case "massAssignment":
