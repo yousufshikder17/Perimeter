@@ -70,6 +70,7 @@ function endpointHasCapability(
 ): boolean {
   if (e.grpc) return cap === "grpcUnary";
   if (e.graphql) return cap === "graphqlQuery";
+  if (e.webhook) return cap === "webhookCallback";
   switch (cap) {
     case "massAssignment":
       return e.massAssignment !== undefined;

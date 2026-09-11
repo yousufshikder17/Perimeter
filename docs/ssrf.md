@@ -77,3 +77,30 @@ Incoming receipt evidence has `direction: incoming`, empty captured headers/body
 and the collector's 204 acceptance status; target requests remain separately
 audited. Custom collectors must use that acceptance contract and synchronized
 timestamps. Receipt-file access is a trusted local capability, not a remote API.
+
+## Run and interpret the probe
+
+Select `ssrf/webhook-destination` or family `ssrf`, then run the scan with
+`--allow-mutating`. Dispatch is classified **mutating**, not read-only or
+idempotent: even a test webhook can enqueue deliveries. Without opt-in, the
+probe is skipped before fixture setup. Approved runs use the normal guarded
+HTTP client, shared rate/request budgets, cancellation, and scratch-only write
+binding; cleanup is attempted by the engine. Keep the collector running for
+the entire scan. Do not configure checkpoint replay for this write probe.
+
+The probe sends two reviewed payloads at most per endpoint, changing only the
+URL field. It requires a successful allowed request, its captured payload, and
+a matching incoming receipt before sending the policy-forbidden destination.
+A matching forbidden receipt produces a HIGH/FIRM finding, even if the target
+returned an error after dispatch. Four audited exchanges connect the two
+requests and two receipts. Disabled/redacted payload captures are inconclusive.
+
+An explicit 400/403/422 rejection with no forbidden receipt during the bounded
+window produces a narrowly scoped pass. Accepted/queued responses without a
+receipt, missing allowed controls, errors, unrelated tokens, and unavailable
+collectors are inconclusive. A pass is **not** proof against delayed delivery,
+all URL parsing bypasses, redirects, DNS rebinding, or internal-network SSRF.
+This profile validates your declared destination policy, not arbitrary hosts.
+
+The standard probe runs in-process behind the engine's existing write guards.
+Isolated worker protocol v1 remains read-only; it does not dispatch webhooks.

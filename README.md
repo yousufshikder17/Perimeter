@@ -85,9 +85,12 @@ examples/             target.yaml, scan.yaml, baseline.json
 | **graphql** | Do reviewed queries enforce protected-data authorization? |
 | **csv** | Does a harmless scratch formula remain unneutralized in an export? |
 | **mass-assignment** | Can a reviewed protected field be persisted through a scratch-object update? |
+| **grpc** | Do reviewed unary RPCs enforce protected-data authorization? |
+| **ssrf** | Does a scratch webhook contact an explicitly owned, policy-forbidden destination? |
 
 See [CSV export checks](./docs/csv.md) and [mass-assignment checks](./docs/mass-assignment.md)
 for required annotations, evidence boundaries and opt-in behavior.
+See also [unary gRPC](./docs/grpc.md) and [owned SSRF/webhook checks](./docs/ssrf.md).
 
 ## Safety, in one line
 

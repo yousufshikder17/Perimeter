@@ -12,6 +12,8 @@ Start here, then dive into whichever area you need.
 | [Finding schema](./finding-schema.md) | The versioned finding + evidence + remediation contract (spec §6). |
 | [CSV export checks](./csv.md) | Harmless scratch formula canaries and bounded CSV evidence. |
 | [Mass-assignment checks](./mass-assignment.md) | Opt-in scratch PATCH controls, persisted-field verification and cleanup. |
+| [Unary gRPC checks](./grpc.md) | Reviewed proto contracts, guarded calls, authorization controls and isolated workers. |
+| [SSRF / webhook checks](./ssrf.md) | Owned callback collection, opt-in scratch dispatch and observed destination-policy evidence. |
 | **[Probe Authoring Guide](./authoring/README.md)** | **The moat.** The safety contract, the "good probe" rubric, and the fixture requirement (spec §3). |
 | [Write your first probe](./authoring/first-probe.md) | End-to-end tutorial from `probe new` to a passing fixture test. |
 

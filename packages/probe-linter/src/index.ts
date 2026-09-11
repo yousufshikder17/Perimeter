@@ -114,7 +114,7 @@ export function lintManifest(file: string, manifest: unknown): LintFinding[] {
     out.push({ file, line: 1, rule: "no-destructive", severity: "error", message: "safety.destructive must be false for standard-library acceptance (spec §3.1)" });
   }
   if (parsed.data.safety.class === "mutating") {
-    out.push({ file, line: 1, rule: "no-mutating", severity: "warning", message: "safety.class 'mutating' requires operator opt-in; standard library ships none" });
+    out.push({ file, line: 1, rule: "no-mutating", severity: "warning", message: "safety.class 'mutating' requires operator opt-in and reviewed scratch-only effects" });
   }
   return out;
 }

@@ -141,6 +141,8 @@ describe("§8 acceptance scenario (end-to-end)", () => {
       probeId: "mass-assignment/protected-field", reason: 'no endpoint provides capability "massAssignment"',
     }, {
       probeId: "grpc/authorization", reason: 'no endpoint provides capability "grpcUnary"',
+    }, {
+      probeId: "ssrf/webhook-destination", reason: 'no endpoint provides capability "webhookCallback"',
     }]);
   });
 });

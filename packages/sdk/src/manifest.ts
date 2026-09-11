@@ -24,6 +24,7 @@ export const KNOWN_FAMILIES = [
   "csv",
   "mass-assignment",
   "grpc",
+  "ssrf",
 ] as const;
 export const ProbeFamily = z.string();
 export type ProbeFamily = z.infer<typeof ProbeFamily>;

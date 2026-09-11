@@ -8,6 +8,7 @@ import { graphqlAuthorization } from "./graphql/authorization.js";
 import { csvFormula } from "./csv/formula.js";
 import { massAssignment } from "./mass-assignment/protected-field.js";
 import { grpcAuthorization } from "./grpc/authorization.js";
+import { webhookDestination } from "./ssrf/webhook-destination.js";
 
 /**
  * @perimeter/probes-standard — REST families plus reviewed GraphQL authorization.
@@ -27,9 +28,10 @@ export const STANDARD_PROBES: Probe[] = [
   csvFormula,
   massAssignment,
   grpcAuthorization,
+  webhookDestination,
 ];
 
 export const perimeter: ProbePackage["perimeter"] = { probes: STANDARD_PROBES };
 
 // Named exports for direct import / testing
-export { crossTenantRead, sequentialIdSwap, sqliDifferential, tokenManipulation, burstThrottle, graphqlAuthorization, csvFormula, massAssignment, grpcAuthorization };
+export { crossTenantRead, sequentialIdSwap, sqliDifferential, tokenManipulation, burstThrottle, graphqlAuthorization, csvFormula, massAssignment, grpcAuthorization, webhookDestination };
