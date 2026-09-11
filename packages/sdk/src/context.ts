@@ -153,6 +153,8 @@ export interface ProbeContext {
   readonly http: GuardedHttpClient;
   /** Engine-owned unary RPC transport; absent in legacy/custom harness contexts. */
   readonly grpc?: GuardedGrpcClient;
+  /** Owned callback URLs and audited receipt matching; absent in legacy harnesses. */
+  readonly callbacks?: { open(endpointId: string): Promise<CallbackSession> };
   /** Scratch objects the engine provisioned for this scan (spec §4.3). */
   readonly fixtures: FixtureView;
   /** Mint/fetch credentials for a tenant/role. */
@@ -167,4 +169,11 @@ export interface ProbeContext {
   readonly clock: Clock;
   readonly signal: AbortSignal; // cooperative cancellation
   readonly budget: RequestBudget;
+}
+
+export interface CallbackSession {
+  readonly controlUrl: string;
+  readonly prohibitedUrl: string;
+  /** Bounded wait for a fresh incoming receipt, never a fetch of the destination. */
+  wait(kind: "control" | "prohibited"): Promise<HttpExchange | undefined>;
 }

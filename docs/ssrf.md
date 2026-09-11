@@ -39,3 +39,41 @@ A manual/custom collector may append the same trusted NDJSON contract:
 Use `kind: prohibited` on the second listener. Do not put receipt files in a
 target-writable directory or synthesize receipts from target response text.
 They attest incoming traffic and are only as trustworthy as your collector.
+
+## Reviewed target contract
+
+Model a disposable factory (`POST /webhooks`, `creates: webhook`) and cleanup
+(`DELETE /webhooks/{id}` with the same `objectRef`) alongside this endpoint:
+
+```yaml
+- id: dispatchWebhook
+  method: POST
+  path: /webhooks/{id}/test
+  objectRef: { param: id, kind: webhook, ownership: user }
+  webhook:
+    identity: owner
+    urlField: callbackUrl
+    body: { event: perimeter-canary }
+    controlOrigin: http://127.0.0.1:9001
+    prohibitedOrigin: http://127.0.0.1:9002
+    receiptFile: callbacks.ndjson
+    iOwnBothDestinations: true
+    prohibitedByPolicy: true
+    timeoutMs: 2000
+```
+
+The two origins must differ. `prohibitedByPolicy` is your reviewed assertion,
+not a policy Perimeter infers. Both destinations must be harmless, owned
+canary listeners; do not point either at sensitive services. The body is fixed,
+non-secret JSON; `urlField` must be absent so only the engine-issued URL is added.
+POST/PATCH is supported only on the exact engine-created scratch object route.
+
+`receiptFile` is relative to the Target Model file, not the current directory.
+Start the collector first. The engine snapshots the existing file, generates
+fresh unpredictable 128-bit tokens independently of the scan seed, and only
+accepts matching receipts appended afterward. Truncation, replacement, invalid
+records, and size-limit failures are errors, never successful blocking checks.
+Incoming receipt evidence has `direction: incoming`, empty captured headers/body,
+and the collector's 204 acceptance status; target requests remain separately
+audited. Custom collectors must use that acceptance contract and synchronized
+timestamps. Receipt-file access is a trusted local capability, not a remote API.

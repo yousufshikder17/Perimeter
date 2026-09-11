@@ -17,7 +17,7 @@ export async function startCallbackCollector(options: {
   if (!["127.0.0.1", "::1"].includes(host) && options.acknowledgeExposure !== true) throw new Error("Non-loopback binding requires explicit exposure acknowledgement");
   const ports = [options.controlPort ?? 9001, options.prohibitedPort ?? 9002];
   if (ports.some((port) => !Number.isInteger(port) || port < 0 || port > 65535) || (ports[0] !== 0 && ports[0] === ports[1])) throw new Error("Two distinct valid collector ports are required");
-  const file = await open(options.receiptFile, "wx", 0o600);
+  const file = await open(options.receiptFile, "ax", 0o600);
   const servers: Server[] = [];
   let bytes = 0;
   let writes = Promise.resolve();

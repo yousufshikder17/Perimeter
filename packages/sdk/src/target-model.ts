@@ -183,6 +183,13 @@ const FieldCheckSchema = z.object({
   resultPath: z.array(z.string().min(1)).min(1).max(8),
 }).strict();
 
+const CallbackOriginSchema = z.string().url().refine((value) => {
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) && url.pathname === "/" && !url.username && !url.password && !url.search && !url.hash;
+  } catch { return false; }
+}, "Callback destination must be a literal HTTP(S) origin without credentials");
+
 export const EndpointSchema = z
   .object({
     id: z.string(),
@@ -190,6 +197,18 @@ export const EndpointSchema = z
     path: z.string(),
     /** A reviewed GraphQL query transported by GET or POST, not a REST route. */
     graphql: GraphqlModelSchema.optional(),
+    /** Explicitly owned allowed/forbidden destinations on a disposable webhook. */
+    webhook: z.object({
+      identity: IdentityRef,
+      urlField: z.string().regex(/^[A-Za-z][A-Za-z0-9_]*$/).refine((name) => !["constructor", "prototype"].includes(name)),
+      body: z.record(JsonValueSchema).default({}),
+      controlOrigin: CallbackOriginSchema,
+      prohibitedOrigin: CallbackOriginSchema,
+      receiptFile: z.string().min(1),
+      iOwnBothDestinations: z.literal(true),
+      prohibitedByPolicy: z.literal(true),
+      timeoutMs: z.number().int().min(100).max(30000).default(2000),
+    }).strict().optional(),
     /** One reviewed read-only unary RPC; proto text is bundled, never fetched. */
     grpc: z.object({
       readOnly: z.literal(true),
@@ -239,6 +258,13 @@ export const EndpointSchema = z
   })
   .strict()
   .superRefine((endpoint, ctx) => {
+    if (endpoint.webhook && (!["POST", "PATCH"].includes(endpoint.method) || endpoint.auth !== "required" || !scratchPath(endpoint, "scratch") ||
+        endpoint.graphql || endpoint.grpc || endpoint.csv || endpoint.massAssignment || endpoint.creates || endpoint.fixture ||
+        Object.hasOwn(endpoint.webhook.body, endpoint.webhook.urlField) || JSON.stringify(endpoint.webhook.body).length > 8192 ||
+        (CallbackOriginSchema.safeParse(endpoint.webhook.controlOrigin).success && CallbackOriginSchema.safeParse(endpoint.webhook.prohibitedOrigin).success &&
+          new URL(endpoint.webhook.controlOrigin).origin === new URL(endpoint.webhook.prohibitedOrigin).origin))) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["webhook"], message: "Webhook checks require authenticated scratch POST/PATCH, distinct owned origins, bounded body without urlField, and no other protocol/factory annotations" });
+    }
     if (endpoint.grpc && (endpoint.method !== "POST" || !/^\/[A-Za-z_][A-Za-z0-9_.]*\/[A-Za-z_][A-Za-z0-9_]*$/.test(endpoint.path) ||
         endpoint.graphql || endpoint.csv || endpoint.massAssignment || endpoint.creates || endpoint.fixture ||
         JSON.stringify(endpoint.grpc.request).length > 16384)) {
@@ -324,6 +350,15 @@ export const TargetModelSchema = z
   })
   .strict()
   .superRefine((model, ctx) => {
+    for (const endpoint of model.endpoints.filter((e) => e.webhook)) {
+      const factories = model.endpoints.filter((e) => e.creates === endpoint.objectRef?.kind);
+      const cleanup = model.endpoints.filter((e) => e.method === "DELETE" && e.objectRef?.kind === endpoint.objectRef?.kind);
+      if (!model.identities.some((i) => i.ref === endpoint.webhook!.identity) || model.endpoints.filter((e) => e.id === endpoint.id).length !== 1 ||
+          factories.length !== 1 || factories[0]?.method !== "POST" || !/^\/(?!\/)[^?#{}\\]*$/.test(factories[0]?.path ?? "") ||
+          cleanup.length !== 1 || !scratchPath(cleanup[0]!, "scratch")) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endpoints"], message: "Webhook checks require a modeled identity, unique endpoint ID, one POST scratch factory and one DELETE cleanup route" });
+      }
+    }
     for (const endpoint of model.endpoints.filter((e) => e.grpc)) {
       const grpc = endpoint.grpc!;
       const owner = model.identities.find((i) => i.ref === grpc.ownerIdentity);

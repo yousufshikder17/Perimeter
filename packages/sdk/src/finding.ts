@@ -36,6 +36,8 @@ export const HttpExchangeSchema = z
     ref: z.string(),
     /** gRPC exchanges use native status codes rather than HTTP status codes. */
     protocol: z.literal("grpc").optional(),
+    /** Operator-owned collector receipt, not scanner-initiated egress. */
+    direction: z.literal("incoming").optional(),
     request: z.object({
       method: z.string(),
       url: z.string(),

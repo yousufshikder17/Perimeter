@@ -7,6 +7,7 @@ import { CheckpointError } from "../runtime/checkpoint.js";
 import { DeterministicRng } from "../runtime/rng.js";
 import { GuardedHttpClientImpl } from "../http/guarded-http-client.js";
 import { GuardedGrpcClientImpl } from "../grpc/client.js";
+import { openCallbackSession } from "../callbacks/session.js";
 import type { AuditSink } from "../audit/audit-log.js";
 import type { IdentityManager } from "../identity/identity-manager.js";
 import { AuthenticationError } from "../identity/identity-manager.js";
@@ -23,6 +24,7 @@ import type { Logger, Clock, TargetModel } from "@perimeter/sdk";
  */
 export interface EngineDeps {
   target: TargetModel;
+  targetDirectory?: string;
   scanId: string;
   seed: string;
   logger: Logger;
@@ -176,6 +178,13 @@ export class ExecutionEngine {
     return {
       target: this.#d.target,
       http,
+      callbacks: { open: async (endpointId) => {
+        if (!this.#d.allowMutating || probe.manifest.safety.class !== "mutating") throw new Error("Callback checks require an explicitly authorized mutating probe");
+        const endpoint = this.#d.target.endpoints.find((e) => e.id === endpointId);
+        if (!endpoint?.webhook) throw new Error("Unmodeled callback endpoint");
+        return openCallbackSession({ endpoint, targetDirectory: this.#d.targetDirectory ?? process.cwd(), clock: this.#d.clock,
+          signal: this.#d.signal, audit: this.#d.audit, scanId: this.#d.scanId, probeId: probe.manifest.id });
+      } },
       grpc: new GuardedGrpcClientImpl({ target: this.#d.target, probeId: probe.manifest.id, scanId: this.#d.scanId,
         budget, limiter: this.#d.limiter, audit: this.#d.audit, fixtures: this.#d.fixtures.view(),
         resolveIdentity: (ref) => this.#d.identities.get(ref), signal: this.#d.signal,

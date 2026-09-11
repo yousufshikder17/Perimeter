@@ -1,6 +1,6 @@
 import { ulid } from "ulid";
 import { randomBytes } from "node:crypto";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import type { FindingRegistry, Probe, TargetModel } from "@perimeter/sdk";
 import type { ScanConfig } from "./config/scan-config.js";
 import { loadTargetModel } from "./target/loader.js";
@@ -160,6 +160,7 @@ export class Orchestrator {
 
     const engine = new ExecutionEngine({
       target,
+      targetDirectory: dirname(resolve(this.#config.target)),
       scanId,
       seed,
       logger,
