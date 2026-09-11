@@ -154,6 +154,22 @@ pending authenticated probe request from being sent after credentials resolve.
 
 A worker can submit a finding using observed exchange references:
 
+Reviewed read-only unary RPCs use the same increasing request-ID sequence:
+
+```json
+{"type":"grpc-request","id":1,"request":{"endpointId":"readRecord","as":"owner"}}
+```
+
+The host supplies the modeled method, proto, origin, and fixed payload; the
+worker may only select an endpoint, permitted identity, and optional owned
+`scratchObjectId`. The reply uses `type: response` with a native gRPC `code`
+and sanitized `exchange` whose `protocol` is `grpc`. A completed RPC with a
+nonzero status is still `ok: true`; `ok` indicates transport invocation, not
+authorization success. Deadlines, cancellation, budgets, and evidence-reference
+validation remain host-owned. See [gRPC checks](grpc.md).
+
+Findings attach those host-observed references, for either transport:
+
 ```json
 {"type":"finding","endpointId":"profile","locator":"missing-auth","title":"Possible missing authentication","severity":"HIGH","confidence":"FIRM","summary":"Review whether the anonymous response contains protected data.","exchangeRefs":["sha256:..."],"remediation":{"guidance":"Require authentication on protected routes.","references":[]}}
 ```

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Confidence, ProbeManifestSchema, RemediationSchema, Severity } from "@perimeter/sdk";
+import { Confidence, GrpcRequestSchema, ProbeManifestSchema, RemediationSchema, Severity } from "@perimeter/sdk";
 
 export const ISOLATED_PROTOCOL_VERSION = 1;
 export const MAX_WORKER_FRAME_BYTES = 256 * 1024;
@@ -28,6 +28,7 @@ export const IsolatedProbeSchema = z.object({
 export type IsolatedProbeConfig = z.infer<typeof IsolatedProbeSchema>;
 
 export const WorkerMessageSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("grpc-request"), id: z.number().int().nonnegative(), request: GrpcRequestSchema }).strict(),
   z.object({
     type: z.literal("request"), id: z.number().int().nonnegative(),
     request: z.object({

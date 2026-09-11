@@ -12,7 +12,7 @@ import type { GuardedGrpcClient } from "./grpc.js";
  */
 
 // ---------------------------------------------------------------------------
-// Guarded HTTP client — the ONLY network egress (spec §3.2 rule 1)
+// Guarded HTTP client — engine-owned network egress (spec §3.2 rule 1)
 // ---------------------------------------------------------------------------
 
 export interface GuardedRequest {
@@ -149,7 +149,7 @@ export interface Logger {
 export interface ProbeContext {
   /** Read-only view of the Target Model (spec §5). */
   readonly target: TargetModel;
-  /** The ONLY network egress (spec §3.2 rule 1). */
+  /** Engine-owned HTTP transport (spec §3.2 rule 1). */
   readonly http: GuardedHttpClient;
   /** Engine-owned unary RPC transport; absent in legacy/custom harness contexts. */
   readonly grpc?: GuardedGrpcClient;

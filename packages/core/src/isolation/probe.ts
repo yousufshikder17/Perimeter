@@ -108,6 +108,22 @@ async function runWorker(config: IsolatedProbeConfig, ctx: ProbeContext): Promis
           const message = WorkerMessageSchema.parse(JSON.parse(buffer.subarray(0, newline).toString("utf8")));
           buffer = buffer.subarray(newline + 1);
           if (message.type === "done") { done = true; child.stdin.end(); continue; }
+          if (message.type === "grpc-request") {
+            if (message.id <= lastRequestId) throw new IsolatedProbeError("Worker request IDs must increase");
+            lastRequestId = message.id;
+            if (message.request.as && !allowedIdentities.has(message.request.as)) throw new IsolatedProbeError("Worker requested an undeclared identity");
+            try {
+              if (!ctx.grpc) throw new IsolatedProbeError("No guarded RPC transport");
+              const response = await ctx.grpc.request(message.request, signal);
+              exchanges.set(response.exchange.ref, response.exchange);
+              await send({ type: "response", id: message.id, ok: true, code: response.code, exchange: response.exchange, remaining: ctx.budget.remaining });
+            } catch (error) {
+              if (error instanceof AuthenticationError) throw error;
+              signal.throwIfAborted();
+              await send({ type: "response", id: message.id, ok: false, error: "Request denied or failed", remaining: ctx.budget.remaining });
+            }
+            continue;
+          }
           if (message.type === "request") {
             if (message.id <= lastRequestId) throw new IsolatedProbeError("Worker request IDs must increase");
             lastRequestId = message.id;

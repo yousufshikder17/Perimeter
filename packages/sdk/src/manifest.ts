@@ -23,6 +23,7 @@ export const KNOWN_FAMILIES = [
   "graphql",
   "csv",
   "mass-assignment",
+  "grpc",
 ] as const;
 export const ProbeFamily = z.string();
 export type ProbeFamily = z.infer<typeof ProbeFamily>;

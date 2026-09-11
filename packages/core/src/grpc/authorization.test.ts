@@ -11,6 +11,7 @@ import { Orchestrator } from "../orchestrator.js";
 import { parseScanConfig } from "../config/scan-config.js";
 import { ConsoleLogger } from "../runtime/logger.js";
 import { compileGrpc } from "./codec.js";
+import { createIsolatedProbe } from "../isolation/probe.js";
 import { STANDARD_PROBES } from "../../../probes-standard/dist/index.js";
 
 it("runs registered gRPC authorization through the engine and CLI, with real denial/data controls and stable evidence", async () => {
@@ -62,5 +63,25 @@ it("runs registered gRPC authorization through the engine and CLI, with real den
     expect(JSON.parse(await readFile(output.json, "utf8")).findings).toHaveLength(1);
     const before = calls; await promisify(execFile)(process.execPath, [...cli, "--resume"]); expect(calls).toBe(before);
     expect(await readFile(output.auditLog, "utf8")).not.toContain("private-token");
+    const worker = join(directory, "worker.mjs");
+    await writeFile(worker, `import { createInterface } from 'node:readline';
+      const send = value => process.stdout.write(JSON.stringify(value) + '\\n');
+      createInterface({ input: process.stdin }).on('line', line => {
+        const frame = JSON.parse(line);
+        if (frame.type === 'start') send({ type: 'grpc-request', id: 0, request: { endpointId: 'read', as: process.argv[2] } });
+        else if (frame.type === 'response') {
+          if (!frame.ok || frame.code !== 0 || frame.exchange.protocol !== 'grpc') process.exit(1);
+          send({ type: 'pass', endpointId: 'read', title: 'RPC observed', summary: 'Host supplied a guarded RPC response.' });
+          send({ type: 'done', version: 1 });
+        }
+      });`);
+    const isolated = (identity: string) => createIsolatedProbe({ manifest: { id: "grpc/worker", family: "grpc", version: "1", schemaVersion: "1",
+      requires: { identities: ["owner"], endpoints: ["grpcUnary"] }, safety: { class: "read-only", maxRequests: 1, destructive: false } },
+      runner: { kind: "command", command: [process.execPath, worker, identity], acknowledgeExternalSecurity: true } });
+    calls = 0;
+    const observed = await new Orchestrator(config, [isolated("owner")], { logger }).run();
+    expect(observed.passes).toHaveLength(1); expect(calls).toBe(1);
+    await expect(new Orchestrator(config, [isolated("reader")], { logger }).run()).rejects.toThrow();
+    expect(calls).toBe(1);
   } finally { vi.unstubAllEnvs(); server.forceShutdown(); await rm(directory, { recursive: true, force: true }); }
 }, 20000);
