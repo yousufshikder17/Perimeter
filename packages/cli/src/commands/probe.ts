@@ -1,11 +1,11 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, realpath, lstat } from "node:fs/promises";
 import { readdir } from "node:fs/promises";
-import { join, dirname, extname } from "node:path";
+import { join, dirname, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command, Option } from "clipanion";
 import { lintFile, type LintFinding } from "@perimeter/probe-linter";
 
-const TEMPLATES_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "templates");
+const TEMPLATES_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "templates");
 
 /**
  * `perimeter probe new <family>/<name>` (spec §3.4). Scaffolds a typed probe, a
@@ -23,25 +23,32 @@ export class ProbeNewCommand extends Command {
   dir = Option.String("--dir", "probes", { description: "Where to scaffold (default ./probes)." });
 
   async execute(): Promise<number> {
-    const [family, name] = this.ref.split("/");
-    if (!family || !name) {
-      this.context.stderr.write(`✗ expected <family>/<name>, got "${this.ref}"\n`);
+    const match = /^([a-z0-9]+(?:-[a-z0-9]+)*)\/([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(this.ref);
+    const reserved = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+    if (!match || reserved.test(match[1]!) || reserved.test(match[2]!)) {
+      this.context.stderr.write("Expected exactly <family>/<name> using lowercase letters, digits and single hyphens; device names are not allowed.\n");
       return 1;
     }
-    const outDir = join(this.dir, family);
-    await mkdir(outDir, { recursive: true });
-
-    const template = await readFile(join(TEMPLATES_DIR, "probe.template.ts"), "utf8");
-    const rendered = template
-      .replaceAll("__FAMILY__", family)
-      .replaceAll("__NAME__", name)
-      .replaceAll("__ID__", `${family}/${name}`)
-      .replaceAll("__CAMEL__", toCamel(name));
-
-    const probeFile = join(outDir, `${name}.ts`);
-    await writeFile(probeFile, rendered);
-    this.context.stdout.write(`✓ scaffolded ${probeFile}\n`);
-    this.context.stdout.write(`  next: implement plan()/run(), add vulnerable+patched fixtures, then \`perimeter probe lint\`\n`);
+    const family = match[1]!;
+    const name = match[2]!;
+    const assets = [["probe.template.ts", "probe.ts"], ["manifest.template.ts", "manifest.ts"],
+      ["probe.test.template.ts", "probe.test.ts"], ["config.schema.template.json", "config.schema.json"]] as const;
+    // Render all assets first: missing packaged templates leave no partial scaffold.
+    const files: Array<{ file: string; text: string }> = await Promise.all(assets.map(async ([template, file]) => ({ file,
+      text: (await readFile(join(TEMPLATES_DIR, template), "utf8")).replaceAll("__FAMILY__", family).replaceAll("__ID__", this.ref) })));
+    files.push({ file: "package.json", text: JSON.stringify({ name: `perimeter-probe-${family}-${name}`, private: true, type: "module",
+      scripts: { build: "tsc --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck --types node --outDir dist probe.ts manifest.ts probe.test.ts",
+        test: "npm run build && node --test dist/probe.test.js" } }, null, 2) + "\n" });
+    await mkdir(resolve(this.dir), { recursive: true });
+    const root = await realpath(resolve(this.dir));
+    const parent = join(root, family);
+    await mkdir(parent, { recursive: true });
+    if ((await lstat(parent)).isSymbolicLink() || await realpath(parent) !== parent) throw new Error("Scaffold family directory must not redirect outside its output root");
+    const outDir = join(parent, name);
+    await mkdir(outDir); // Exclusive ownership: never overwrite or adopt an existing scaffold.
+    for (const file of files) await writeFile(join(outDir, file.file), file.text, { flag: "wx" });
+    this.context.stdout.write(`Scaffolded ${outDir} (probe, manifest, schema, fixture tests and package scripts).\n`);
+    this.context.stdout.write("Run the package's test script, then load its dist/probe.js using probePaths. The starter is a transport diagnostic, not a vulnerability detector.\n");
     return 0;
   }
 }
@@ -74,10 +81,6 @@ export class ProbeLintCommand extends Command {
     this.context.stdout.write(`✓ probe lint passed (${files.length} file(s))\n`);
     return 0;
   }
-}
-
-function toCamel(s: string): string {
-  return s.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
 }
 
 async function collectTsFiles(path: string): Promise<string[]> {

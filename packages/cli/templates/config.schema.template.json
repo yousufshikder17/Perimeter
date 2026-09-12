@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "__ID__ configuration",
+  "description": "This diagnostic starter has no configuration options.",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}

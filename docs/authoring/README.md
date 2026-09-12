@@ -32,7 +32,8 @@ statically (spec §3.2, §3.4). You cannot ship a probe that violates them.
 2. **Read-only by default.** `ctx.http` refuses `POST/PUT/PATCH/DELETE` unless
    your manifest's `safety.class` permits it *and* the scan authorized it — and
    even then, writes must hit engine-created **scratch objects**, never real data.
-   The standard library ships **zero** mutating probes.
+   Standard mass-assignment and webhook checks require explicit write opt-in;
+   they still target engine-created scratch records only.
 3. **Evidence is mandatory.** `ctx.report(finding)` rejects a finding with no
    `Evidence` bundle. No evidence, no finding.
 4. **Determinism.** All randomness via `ctx.rng`; all time via `ctx.clock`. Never
@@ -59,7 +60,8 @@ statically (spec §3.2, §3.4). You cannot ship a probe that violates them.
 
 `requires.endpoints` capability tags (matched against Target Model annotations,
 spec §5.3): `readsTenantScopedObject`, `createsObject`, `rateSensitive`,
-`injectableInput`, `authRequired`, `hasObjectRef`.
+`injectableInput`, `authRequired`, `hasObjectRef`, `roleAccess`, `graphqlQuery`,
+`grpcUnary`, `csvExport`, `massAssignment`, `webhookCallback`.
 
 ## The "good probe" rubric
 
@@ -76,6 +78,12 @@ A finding a developer can't act on is a bug in the probe. Aim for:
   not ship.
 
 ## Testing (spec §3.4)
+
+`perimeter probe new <family>/<name>` creates a complete package with a typed
+probe, separate manifest, strict empty-options schema and runnable Node fixture
+tests. The diagnostic starter claims no vulnerability; replace its tests with
+real vulnerable/patched controls when implementing your security behavior.
+See [the scaffold walkthrough](first-probe.md) for build, test and loader commands.
 
 Use the recorded-fixture harness — no live target needed:
 
