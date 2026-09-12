@@ -72,6 +72,8 @@ function endpointHasCapability(
   if (e.graphql) return cap === "graphqlQuery";
   if (e.webhook) return cap === "webhookCallback";
   switch (cap) {
+    case "roleAccess":
+      return e.roleAccess !== undefined;
     case "massAssignment":
       return e.massAssignment !== undefined;
     case "csvExport":

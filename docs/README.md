@@ -10,6 +10,7 @@ Start here, then dive into whichever area you need.
 | [Safety model](./safety.md) | The engine-level "never destructive" invariants and how they're enforced (spec §4.2, §8.9). |
 | [Target Model](./target-model.md) | How you describe a target's auth, tenancy, and endpoints (spec §5). |
 | [Finding schema](./finding-schema.md) | The versioned finding + evidence + remediation contract (spec §6). |
+| [Role authorization checks](./role-access.md) | Reviewed same-tenant user-to-admin boundaries with verified-session and protected-data controls. |
 | [CSV export checks](./csv.md) | Harmless scratch formula canaries and bounded CSV evidence. |
 | [Mass-assignment checks](./mass-assignment.md) | Opt-in scratch PATCH controls, persisted-field verification and cleanup. |
 | [Unary gRPC checks](./grpc.md) | Reviewed proto contracts, guarded calls, authorization controls and isolated workers. |

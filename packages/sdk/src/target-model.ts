@@ -197,6 +197,16 @@ export const EndpointSchema = z
     path: z.string(),
     /** A reviewed GraphQL query transported by GET or POST, not a REST route. */
     graphql: GraphqlModelSchema.optional(),
+    /** Reviewed same-tenant function-level authorization on a read-only REST GET. */
+    roleAccess: z.object({
+      readOnly: z.literal(true), deniedByPolicy: z.literal(true),
+      allowedIdentity: IdentityRef, deniedIdentity: IdentityRef,
+      resultPath: z.array(z.string().min(1)).min(1).max(8),
+      control: z.object({ endpointId: z.string().min(1),
+        resultPath: z.array(z.string().min(1)).min(1).max(8),
+        expectedValue: z.union([z.string().min(1).max(256), z.number().finite()]),
+      }).strict(),
+    }).strict().optional(),
     /** Explicitly owned allowed/forbidden destinations on a disposable webhook. */
     webhook: z.object({
       identity: IdentityRef,
@@ -258,6 +268,9 @@ export const EndpointSchema = z
   })
   .strict()
   .superRefine((endpoint, ctx) => {
+    if (endpoint.roleAccess && !literalProtectedGet(endpoint)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["roleAccess"], message: "Role access requires a literal authenticated read-only REST GET without object/factory or other protocol annotations" });
+    }
     if (endpoint.webhook && (!["POST", "PATCH"].includes(endpoint.method) || endpoint.auth !== "required" || !scratchPath(endpoint, "scratch") ||
         endpoint.graphql || endpoint.grpc || endpoint.csv || endpoint.massAssignment || endpoint.creates || endpoint.fixture ||
         Object.hasOwn(endpoint.webhook.body, endpoint.webhook.urlField) || JSON.stringify(endpoint.webhook.body).length > 8192 ||
@@ -350,6 +363,18 @@ export const TargetModelSchema = z
   })
   .strict()
   .superRefine((model, ctx) => {
+    for (const endpoint of model.endpoints.filter((e) => e.roleAccess)) {
+      const role = endpoint.roleAccess!;
+      const allowed = model.identities.filter((i) => i.ref === role.allowedIdentity);
+      const denied = model.identities.filter((i) => i.ref === role.deniedIdentity);
+      const controls = model.endpoints.filter((e) => e.id === role.control.endpointId);
+      if (allowed.length !== 1 || denied.length !== 1 || allowed[0]!.ref === denied[0]!.ref ||
+          allowed[0]!.tenant !== denied[0]!.tenant || allowed[0]!.role === denied[0]!.role ||
+          model.endpoints.filter((e) => e.id === endpoint.id).length !== 1 || controls.length !== 1 ||
+          controls[0]!.id === endpoint.id || controls[0]!.path === endpoint.path || !literalProtectedGet(controls[0]!) || controls[0]!.roleAccess) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endpoints"], message: "Role access requires unique same-tenant identities with distinct roles, a unique endpoint ID and a separate literal protected session-control GET" });
+      }
+    }
     for (const endpoint of model.endpoints.filter((e) => e.webhook)) {
       const factories = model.endpoints.filter((e) => e.creates === endpoint.objectRef?.kind);
       const cleanup = model.endpoints.filter((e) => e.method === "DELETE" && e.objectRef?.kind === endpoint.objectRef?.kind);
@@ -432,6 +457,16 @@ export type TargetModel = z.infer<typeof TargetModelSchema>;
 
 export function parseTargetModel(input: unknown): TargetModel {
   return TargetModelSchema.parse(input);
+}
+
+function literalProtectedGet(endpoint: {
+  method: string; path: string; auth: string; graphql?: unknown; grpc?: unknown; webhook?: unknown;
+  csv?: unknown; massAssignment?: unknown; objectRef?: unknown; creates?: unknown; fixture?: unknown;
+}): boolean {
+  return endpoint.method === "GET" && endpoint.auth === "required" &&
+    !endpoint.graphql && !endpoint.grpc && !endpoint.webhook && !endpoint.csv && !endpoint.massAssignment &&
+    !endpoint.objectRef && !endpoint.creates && !endpoint.fixture && /^\/(?!\/)[^?#{}\\]*$/.test(endpoint.path) &&
+    new URL(endpoint.path, "https://model.invalid").pathname === endpoint.path;
 }
 
 /** Bind an object ID to exactly one whole path segment; never normalize traversal. */

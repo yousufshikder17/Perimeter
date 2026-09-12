@@ -91,6 +91,7 @@ examples/             target.yaml, scan.yaml, baseline.json
 See [CSV export checks](./docs/csv.md) and [mass-assignment checks](./docs/mass-assignment.md)
 for required annotations, evidence boundaries and opt-in behavior.
 See also [unary gRPC](./docs/grpc.md) and [owned SSRF/webhook checks](./docs/ssrf.md).
+For same-tenant user-to-admin boundaries, see [role authorization checks](./docs/role-access.md).
 
 ## Safety, in one line
 

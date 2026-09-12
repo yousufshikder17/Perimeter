@@ -143,6 +143,8 @@ describe("§8 acceptance scenario (end-to-end)", () => {
       probeId: "grpc/authorization", reason: 'no endpoint provides capability "grpcUnary"',
     }, {
       probeId: "ssrf/webhook-destination", reason: 'no endpoint provides capability "webhookCallback"',
+    }, {
+      probeId: "auth/role-access", reason: 'no endpoint provides capability "roleAccess"',
     }]);
   });
 });
