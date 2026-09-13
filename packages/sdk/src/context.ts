@@ -155,6 +155,8 @@ export interface ProbeContext {
   readonly grpc?: GuardedGrpcClient;
   /** Owned callback URLs and audited receipt matching; absent in legacy harnesses. */
   readonly callbacks?: { open(endpointId: string): Promise<CallbackSession> };
+  /** Fresh, frozen-cookie sessions; only reviewed read/logout operations are exposed. */
+  readonly sessions?: { open(endpointId: string): Promise<ReplaySession> };
   /** Scratch objects the engine provisioned for this scan (spec §4.3). */
   readonly fixtures: FixtureView;
   /** Mint/fetch credentials for a tenant/role. */
@@ -176,4 +178,10 @@ export interface CallbackSession {
   readonly prohibitedUrl: string;
   /** Bounded wait for a fresh incoming receipt, never a fetch of the destination. */
   wait(kind: "control" | "prohibited"): Promise<HttpExchange | undefined>;
+}
+
+export interface ReplaySession {
+  /** Sanitized evidence only: no raw cookie or automatic credential refresh. */
+  read(): Promise<HttpExchange>;
+  logout(): Promise<HttpExchange>;
 }

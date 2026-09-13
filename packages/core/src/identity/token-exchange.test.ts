@@ -79,9 +79,13 @@ it("exchanges and rotates OAuth credentials, renews sessions, and redacts all au
     const sessions = new IdentityManager(target, undefined, signal, createTokenExchange(target, http));
     const session = sessions.get(a.ref);
     expect(await session.headers()).toEqual({ cookie: "session=cookie-secret" });
+    const beforeInvalidation = requests.length;
+    sessions.invalidate(a.ref);
+    await session.headers();
+    expect(requests).toHaveLength(beforeInvalidation + 1);
     time.mockReturnValue(4000);
     await session.headers();
-    expect(requests.filter((r) => r.path === "/login")).toHaveLength(2);
+    expect(requests.filter((r) => r.path === "/login")).toHaveLength(3);
     time.mockReturnValue(5000);
     fail = true;
     await expect(session.headers()).rejects.toThrow(/^Authentication exchange failed;/);

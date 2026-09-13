@@ -42,6 +42,11 @@ export class IdentityManager {
     this.#exchange = exchange;
   }
 
+  /** Logout probes may invalidate a cached session; existing handles must re-mint. */
+  invalidate(ref: IdentityRef): void {
+    this.#credentials.delete(ref);
+  }
+
   get(ref: IdentityRef): Identity {
     const cached = this.#cache.get(ref);
     if (cached) return cached;

@@ -163,9 +163,13 @@ export class GuardedHttpClientImpl implements GuardedHttpClient {
   ): HttpExchange {
     const authorization = Object.entries(reqHeaders).find(([name]) => name.toLowerCase() === "authorization")?.[1];
     const bearer = /^Bearer\s+(.+)$/i.exec(authorization ?? "")?.[1];
-    const scrubBearer = (value: string) => bearer ? value.replaceAll(bearer, "«redacted»") : value;
+    const cookies = Object.entries(reqHeaders).filter(([name]) => name.toLowerCase() === "cookie").flatMap(([, value]) => value.split(";"));
+    const setCookies = res.headers["set-cookie"];
+    cookies.push(...(typeof setCookies === "string" ? [setCookies] : setCookies ?? []).map((value) => value.split(";")[0]!));
+    const secrets = [bearer, ...cookies.map((value) => value.slice(value.indexOf("=") + 1).trim())].filter((value): value is string => !!value);
+    const scrub = (value: string) => secrets.reduce((text, secret) => text.replaceAll(secret, "«redacted»"), value);
     const responseHeaders = redactHeaders(flattenHeaders(res.headers));
-    for (const [name, value] of Object.entries(responseHeaders)) responseHeaders[name] = scrubBearer(value);
+    for (const [name, value] of Object.entries(responseHeaders)) responseHeaders[name] = scrub(value);
     return {
       ref: `exch-${exchangeCounter++}`,
       request: {
@@ -177,7 +181,7 @@ export class GuardedHttpClientImpl implements GuardedHttpClient {
       response: {
         status: res.statusCode,
         headers: responseHeaders,
-        body: this.#d.captureBodies === false ? "«redacted»" : redactBody(scrubBearer(respText).slice(0, MAX_CAPTURED_BODY_BYTES)),
+        body: this.#d.captureBodies === false ? "«redacted»" : redactBody(scrub(respText).slice(0, MAX_CAPTURED_BODY_BYTES)),
         elapsedMs,
       },
       ...(req.as ? { issuedAs: req.as } : {}),

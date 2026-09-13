@@ -11,6 +11,7 @@ import { openCallbackSession } from "../callbacks/session.js";
 import type { AuditSink } from "../audit/audit-log.js";
 import type { IdentityManager } from "../identity/identity-manager.js";
 import { AuthenticationError } from "../identity/identity-manager.js";
+import { createReplaySessions } from "../identity/replay-sessions.js";
 import { IsolatedProbeError, isManagedIsolatedProbe } from "../isolation/probe.js";
 import type { FixtureManager } from "../identity/fixtures.js";
 import type { FindingRegistryImpl } from "../findings/registry.js";
@@ -128,7 +129,7 @@ export class ExecutionEngine {
 
   async #runOne(probe: Probe): Promise<void> {
     const log = this.#d.logger.child({ probe: probe.manifest.id });
-    const ctx = this.#buildContext(probe);
+    const { ctx, cleanup } = this.#buildContext(probe);
     try {
       const plan = await probe.plan(ctx);
       if (isSkip(plan)) {
@@ -143,13 +144,16 @@ export class ExecutionEngine {
       // A crashing/misbehaving probe cannot corrupt the scan or escape the guard.
       log.error("probe errored", { error: String(err) });
       this.#d.registry.recordSkip(probe.manifest.id, `errored: ${String(err)}`);
+    } finally {
+      await cleanup();
     }
     this.#d.signal.throwIfAborted();
     await this.#d.onCompleted?.(probe.manifest.id);
   }
 
-  #buildContext(probe: Probe): ProbeContext {
+  #buildContext(probe: Probe): { ctx: ProbeContext; cleanup: () => Promise<void> } {
     const budget = new MutableBudget(probe.manifest.safety.maxRequests, this.#d.globalBudget);
+    const sessions = createReplaySessions(this.#d, probe, budget);
     const guard = new SafetyGuard({
       grpcEndpoints: this.#d.target.endpoints.filter((e) => e.grpc)
         .map((e) => new URL(e.path, e.grpc!.origin ?? this.#d.target.baseUrl).href),
@@ -175,9 +179,10 @@ export class ExecutionEngine {
       ...(this.#d.captureBodies !== undefined ? { captureBodies: this.#d.captureBodies } : {}),
     });
 
-    return {
+    return { cleanup: () => sessions.cleanup(), ctx: {
       target: this.#d.target,
       http,
+      sessions: { open: (endpointId) => sessions.open(endpointId) },
       callbacks: { open: async (endpointId) => {
         if (!this.#d.allowMutating || probe.manifest.safety.class !== "mutating") throw new Error("Callback checks require an explicitly authorized mutating probe");
         const endpoint = this.#d.target.endpoints.find((e) => e.id === endpointId);
@@ -198,6 +203,6 @@ export class ExecutionEngine {
       signal: this.#d.signal,
       identity: (ref) => this.#d.identities.get(ref),
       report: (r) => this.#d.registry.report(r),
-    };
+    } };
   }
 }

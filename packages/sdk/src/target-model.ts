@@ -197,6 +197,16 @@ export const EndpointSchema = z
     path: z.string(),
     /** A reviewed GraphQL query transported by GET or POST, not a REST route. */
     graphql: GraphqlModelSchema.optional(),
+    /** Logout/replay of fresh sessions only, on a dedicated disposable account. */
+    sessionReplay: z.object({
+      readOnly: z.literal(true), disposableIdentity: z.literal(true), currentSessionOnly: z.literal(true),
+      identity: IdentityRef,
+      resultPath: z.array(z.string().min(1)).min(1).max(8),
+      expectedValue: z.union([z.string().min(1).max(256), z.number().finite()]),
+      logoutEndpointId: z.string().min(1),
+      logoutBody: z.record(JsonValueSchema).default({}),
+      logoutSuccessStatus: z.union([z.literal(200), z.literal(204)]).default(204),
+    }).strict().optional(),
     /** Reviewed same-tenant function-level authorization on a read-only REST GET. */
     roleAccess: z.object({
       readOnly: z.literal(true), deniedByPolicy: z.literal(true),
@@ -268,6 +278,9 @@ export const EndpointSchema = z
   })
   .strict()
   .superRefine((endpoint, ctx) => {
+    if (endpoint.sessionReplay && (!literalProtectedGet(endpoint) || endpoint.roleAccess || JSON.stringify(endpoint.sessionReplay.logoutBody).length > 8192)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sessionReplay"], message: "Session replay requires a literal protected REST GET without other annotations and a bounded static logout body" });
+    }
     if (endpoint.roleAccess && !literalProtectedGet(endpoint)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["roleAccess"], message: "Role access requires a literal authenticated read-only REST GET without object/factory or other protocol annotations" });
     }
@@ -363,6 +376,23 @@ export const TargetModelSchema = z
   })
   .strict()
   .superRefine((model, ctx) => {
+    for (const endpoint of model.endpoints.filter((e) => e.sessionReplay)) {
+      const session = endpoint.sessionReplay!;
+      const identities = model.identities.filter((i) => i.ref === session.identity);
+      const logouts = model.endpoints.filter((e) => e.id === session.logoutEndpointId);
+      const logout = logouts[0];
+      let loginUrl: string | undefined;
+      try { loginUrl = new URL(model.auth.tokenEndpoint ?? "", model.baseUrl).href; }
+      catch { /* Return a schema issue below, including for malformed auth/base URLs. */ }
+      if (model.auth.scheme !== "session_cookie" || !model.auth.login || !model.auth.tokenEndpoint ||
+          !loginUrl || !literalProtectedGet(endpoint) ||
+          identities.length !== 1 || !identities[0]!.credentials?.env.trim() ||
+          model.endpoints.filter((e) => e.id === endpoint.id).length !== 1 || logouts.length !== 1 || !logout ||
+          logout.method !== "POST" || !literalProtectedGet({ ...logout, method: "GET" }) || logout.roleAccess || logout.sessionReplay ||
+          logout.path === endpoint.path || [endpoint.path, logout.path].some((path) => new URL(path, model.baseUrl).href === loginUrl)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endpoints"], message: "Session replay requires session-cookie login, one credential-backed identity, unique endpoint IDs, and a separate literal protected POST logout distinct from login/read" });
+      }
+    }
     for (const endpoint of model.endpoints.filter((e) => e.roleAccess)) {
       const role = endpoint.roleAccess!;
       const allowed = model.identities.filter((i) => i.ref === role.allowedIdentity);
