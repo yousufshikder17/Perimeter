@@ -72,6 +72,8 @@ function endpointHasCapability(
   if (e.graphql) return cap === "graphqlQuery";
   if (e.webhook) return cap === "webhookCallback";
   switch (cap) {
+    case "sessionFixation":
+      return e.sessionReplay?.fixation !== undefined;
     case "sessionReplay":
       return e.sessionReplay !== undefined;
     case "roleAccess":

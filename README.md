@@ -93,6 +93,7 @@ for required annotations, evidence boundaries and opt-in behavior.
 See also [unary gRPC](./docs/grpc.md) and [owned SSRF/webhook checks](./docs/ssrf.md).
 For same-tenant user-to-admin boundaries, see [role authorization checks](./docs/role-access.md).
 For reviewed logout and original-cookie replay, see [session invalidation checks](./docs/session-replay.md).
+For anonymous-cookie promotion at login, see [session fixation checks](./docs/session-fixation.md).
 
 ## Safety, in one line
 

@@ -42,3 +42,29 @@ This checks a server-side prerequisite for [session fixation](https://owasp.org/
 not how an attacker could plant a cookie in someone else's browser. Cookie
 domain/path rules, browser/MFA/dynamic-CSRF flows, URL/form session IDs,
 privilege-elevation transitions and refresh-token replay are outside this profile.
+
+## Standard probe
+
+Set the scan config's include list to [auth/session-fixation] and run:
+
+~~~sh
+perimeter scan --config scan.yaml --allow-mutating
+~~~
+
+Without write opt-in the probe is skipped before bootstrap/login. It cannot use
+checkpoint/resume. Up to nine requests are reserved per endpoint: anonymous
+read, bootstrap, pre-login read, login, authenticated read, original-cookie replay,
+authenticated recheck and two cleanup logouts (one if the cookie was retained).
+The per-probe ceiling is 45. Cleanup settles before the next endpoint starts.
+
+A finding requires the exact pre-login cookie to expose the expected account
+marker only after authentication, with both authenticated controls succeeding.
+Unchanged cookie bytes alone are not a finding. Rotation alone is not a pass:
+the old cookie must receive a complete captured JSON 401/403 without the marker,
+and the new session must still work. Old-session aliases left valid after
+rotation are detected. HTML, redirects, cached/partial/redacted bodies, changed
+markers, failed controls and known expiry yield no pass.
+
+Findings contain six sanitized control/comparison exchanges, including bootstrap;
+the credential-bearing login is separately recorded with its body redacted.
+This profile is shared local-core functionality, not a hosted/premium feature.

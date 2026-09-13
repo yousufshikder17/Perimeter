@@ -11,6 +11,7 @@ import { grpcAuthorization } from "./grpc/authorization.js";
 import { webhookDestination } from "./ssrf/webhook-destination.js";
 import { roleAccess } from "./auth/role-access.js";
 import { sessionReplay } from "./auth/session-replay.js";
+import { sessionFixation } from "./auth/session-fixation.js";
 
 /**
  * @perimeter/probes-standard — REST families plus reviewed GraphQL authorization.
@@ -33,9 +34,10 @@ export const STANDARD_PROBES: Probe[] = [
   webhookDestination,
   roleAccess,
   sessionReplay,
+  sessionFixation,
 ];
 
 export const perimeter: ProbePackage["perimeter"] = { probes: STANDARD_PROBES };
 
 // Named exports for direct import / testing
-export { crossTenantRead, sequentialIdSwap, sqliDifferential, tokenManipulation, burstThrottle, graphqlAuthorization, csvFormula, massAssignment, grpcAuthorization, webhookDestination, roleAccess, sessionReplay };
+export { crossTenantRead, sequentialIdSwap, sqliDifferential, tokenManipulation, burstThrottle, graphqlAuthorization, csvFormula, massAssignment, grpcAuthorization, webhookDestination, roleAccess, sessionReplay, sessionFixation };

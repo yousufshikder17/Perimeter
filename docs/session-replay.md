@@ -45,7 +45,8 @@ scalar must be non-secret, distinguishing data available only to that account.
 Login, protected GET, and logout must be separate same-origin URLs. Logout is a
 literal POST with a bounded static JSON body and a reviewed 200/204 success status.
 Dynamic CSRF challenges, browser flows, pre-issued cookies, bearer/refresh tokens,
-account-wide revocation, session fixation, and delayed revocation are not covered.
+account-wide revocation and delayed revocation are not covered. Session fixation
+is a [separate opt-in check](session-fixation.md).
 
 All traffic shares the scan/probe budgets, rate limits, cancellation and audit.
 Login bodies are never captured; cookie headers and known cookie echoes are
