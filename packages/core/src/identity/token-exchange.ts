@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { validateHeaderValue } from "node:http";
-import type { GuardedHttpClient, TargetModel } from "@perimeter/sdk";
+import type { GuardedHttpClient, GuardedResponse, TargetModel } from "@perimeter/sdk";
 import { AuthenticationError } from "./identity-manager.js";
 
 export type ExchangeCredential = (ref: string, credentialEnv?: string) => Promise<{
@@ -18,10 +18,11 @@ const TokenResponse = z.object({
 });
 
 /** The manager caches access credentials; this closure retains only per-identity refresh tokens. */
-export function createTokenExchange(target: TargetModel, http: GuardedHttpClient): ExchangeCredential {
+export function createTokenExchange(target: TargetModel, http: GuardedHttpClient, sessionCookie?: string): ExchangeCredential {
   const refreshTokens = new Map<string, string>();
   return async (ref, credentialEnv) => {
     try {
+      if (sessionCookie !== undefined && target.auth.scheme !== "session_cookie") throw new Error();
       const raw = credentialEnv ? process.env[credentialEnv] : undefined;
       if (!raw?.trim()) throw new Error();
       const fields = z.record(z.string()).parse(JSON.parse(raw));
@@ -53,7 +54,7 @@ export function createTokenExchange(target: TargetModel, http: GuardedHttpClient
         } else body = new URLSearchParams(fields).toString();
       }
       const response = await http.request({ method: "POST", url: endpoint,
-        headers: { "content-type": contentType }, body });
+        headers: { "content-type": contentType, ...(sessionCookie ? { cookie: sessionCookie } : {}) }, body });
       if (response.status < 200 || response.status >= 300) throw new Error();
       const configuredTtl = target.auth.refresh?.ttlSeconds ?? 3600;
       if (target.auth.scheme === "oauth2_password") {
@@ -63,21 +64,26 @@ export function createTokenExchange(target: TargetModel, http: GuardedHttpClient
         return { headers: { authorization: `Bearer ${token.access_token}` },
           ttlSeconds: Math.min(configuredTtl, token.expires_in ?? configuredTtl) };
       }
-      const name = target.auth.login!.cookieName;
-      const matching = (response.setCookies ?? []).filter((cookie) => cookie.startsWith(`${name}=`));
-      if (matching.length !== 1) throw new Error();
-      const cookie = matching[0]!.split(";")[0]!;
-      if (!cookie.slice(name.length + 1)) throw new Error();
-      validateHeaderValue("cookie", cookie);
-      const maxAge = /;\s*max-age=(-?\d+)/i.exec(matching[0]!);
-      const expires = /;\s*expires=([^;]+)/i.exec(matching[0]!);
-      const lifetime = maxAge ? Number(maxAge[1]) : expires ? (Date.parse(expires[1]!) - Date.now()) / 1000 : configuredTtl;
-      if (!Number.isFinite(lifetime) || lifetime <= 0) throw new Error();
-      return { headers: { cookie }, ttlSeconds: Math.min(configuredTtl, lifetime) };
+      return readSessionCookie(response, target.auth.login!.cookieName, configuredTtl, sessionCookie);
     } catch {
       refreshTokens.delete(ref);
       // Never surface server payloads, credential fields, or HTTP client errors.
       throw new AuthenticationError("Authentication exchange failed; check the configured credentials and login contract");
     }
   };
+}
+
+/** Shared extraction for login and fresh anonymous sessions; never persists cookie data. */
+export function readSessionCookie(response: Pick<GuardedResponse, "setCookies">, name: string, configuredTtl: number, fallback?: string) {
+  const matching = (response.setCookies ?? []).filter((cookie) => cookie.startsWith(`${name}=`));
+  if (!matching.length && fallback) matching.push(fallback);
+  if (matching.length !== 1) throw new AuthenticationError("Session cookie is missing or ambiguous");
+  const cookie = matching[0]!.split(";")[0]!;
+  if (!cookie.startsWith(`${name}=`) || !cookie.slice(name.length + 1)) throw new AuthenticationError("Session cookie is empty or invalid");
+  validateHeaderValue("cookie", cookie);
+  const maxAge = /;\s*max-age=(-?\d+)/i.exec(matching[0]!);
+  const expires = /;\s*expires=([^;]+)/i.exec(matching[0]!);
+  const lifetime = maxAge ? Number(maxAge[1]) : expires ? (Date.parse(expires[1]!) - Date.now()) / 1000 : configuredTtl;
+  if (!Number.isFinite(lifetime) || lifetime <= 0) throw new AuthenticationError("Session cookie is expired or invalid");
+  return { headers: { cookie }, ttlSeconds: Math.min(configuredTtl, lifetime) };
 }

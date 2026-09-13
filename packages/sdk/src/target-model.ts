@@ -206,6 +206,7 @@ export const EndpointSchema = z
       logoutEndpointId: z.string().min(1),
       logoutBody: z.record(JsonValueSchema).default({}),
       logoutSuccessStatus: z.union([z.literal(200), z.literal(204)]).default(204),
+      fixation: z.object({ bootstrapEndpointId: z.string().min(1), issuesAnonymousSession: z.literal(true) }).strict().optional(),
     }).strict().optional(),
     /** Reviewed same-tenant function-level authorization on a read-only REST GET. */
     roleAccess: z.object({
@@ -381,6 +382,15 @@ export const TargetModelSchema = z
       const identities = model.identities.filter((i) => i.ref === session.identity);
       const logouts = model.endpoints.filter((e) => e.id === session.logoutEndpointId);
       const logout = logouts[0];
+      if (session.fixation) {
+        const bootstraps = model.endpoints.filter((e) => e.id === session.fixation!.bootstrapEndpointId);
+        const bootstrap = bootstraps[0];
+        if (bootstraps.length !== 1 || !bootstrap || bootstrap.auth !== "none" ||
+            !literalProtectedGet({ ...bootstrap, auth: "required" }) || bootstrap.roleAccess || bootstrap.sessionReplay ||
+            bootstrap.path === endpoint.path || bootstrap.path === logout?.path) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endpoints"], message: "Session fixation requires a unique literal anonymous session-issuing GET, separate from protected read and logout" });
+        }
+      }
       let loginUrl: string | undefined;
       try { loginUrl = new URL(model.auth.tokenEndpoint ?? "", model.baseUrl).href; }
       catch { /* Return a schema issue below, including for malformed auth/base URLs. */ }

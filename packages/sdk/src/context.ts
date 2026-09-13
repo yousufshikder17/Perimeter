@@ -156,7 +156,10 @@ export interface ProbeContext {
   /** Owned callback URLs and audited receipt matching; absent in legacy harnesses. */
   readonly callbacks?: { open(endpointId: string): Promise<CallbackSession> };
   /** Fresh, frozen-cookie sessions; only reviewed read/logout operations are exposed. */
-  readonly sessions?: { open(endpointId: string): Promise<ReplaySession> };
+  readonly sessions?: {
+    open(endpointId: string): Promise<ReplaySession>;
+    prepareFixation?(endpointId: string): Promise<FixationSession>;
+  };
   /** Scratch objects the engine provisioned for this scan (spec §4.3). */
   readonly fixtures: FixtureView;
   /** Mint/fetch credentials for a tenant/role. */
@@ -184,4 +187,16 @@ export interface ReplaySession {
   /** Sanitized evidence only: no raw cookie or automatic credential refresh. */
   read(): Promise<HttpExchange>;
   logout(): Promise<HttpExchange>;
+}
+
+export interface FixationSession {
+  readonly bootstrap: HttpExchange;
+  /** Available after login; comparison only, never cookie values. */
+  readonly cookieRotated: boolean | undefined;
+  /** Frozen anonymous cookie, both before and after login. */
+  read(): Promise<HttpExchange>;
+  /** Authenticate the disposable account with that cookie, once; no raw credentials. */
+  login(): Promise<ReplaySession>;
+  /** Best-effort logout of both owned cookies, still budgeted and cancellable. */
+  close(): Promise<void>;
 }

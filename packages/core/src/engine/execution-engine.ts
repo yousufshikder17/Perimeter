@@ -182,7 +182,7 @@ export class ExecutionEngine {
     return { cleanup: () => sessions.cleanup(), ctx: {
       target: this.#d.target,
       http,
-      sessions: { open: (endpointId) => sessions.open(endpointId) },
+      sessions: { open: (endpointId) => sessions.open(endpointId), prepareFixation: (endpointId) => sessions.prepareFixation(endpointId) },
       callbacks: { open: async (endpointId) => {
         if (!this.#d.allowMutating || probe.manifest.safety.class !== "mutating") throw new Error("Callback checks require an explicitly authorized mutating probe");
         const endpoint = this.#d.target.endpoints.find((e) => e.id === endpointId);

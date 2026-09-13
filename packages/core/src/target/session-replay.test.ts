@@ -40,3 +40,28 @@ it("requires an explicit disposable-session contract and separate bounded login/
     expect(TargetModelSchema.safeParse(invalid).success).toBe(false);
   }
 });
+
+it("requires a separately reviewed anonymous session issuer for fixation", async () => {
+  const original = await loadTargetModel("examples/target.yaml");
+  const target = parseTargetModel({ ...original,
+    auth: { scheme: "session_cookie", tokenEndpoint: "/login", login: { format: "json", cookieName: "session" } },
+    endpoints: [{ id: "bootstrap", method: "GET", path: "/login", auth: "none" },
+      { id: "logout", method: "POST", path: "/logout" },
+      { id: "profile", method: "GET", path: "/profile", sessionReplay: { readOnly: true, disposableIdentity: true,
+        currentSessionOnly: true, identity: "tenantA.user", resultPath: ["id"], expectedValue: "test-user", logoutEndpointId: "logout",
+        fixation: { bootstrapEndpointId: "bootstrap", issuesAnonymousSession: true } } }],
+  });
+  for (const change of [
+    (t: typeof target) => { t.endpoints[0]!.method = "POST"; },
+    (t: typeof target) => { t.endpoints[0]!.auth = "required"; },
+    (t: typeof target) => { t.endpoints[0]!.path = "/profile"; },
+    (t: typeof target) => { t.endpoints[0]!.path = "/logout"; },
+    (t: typeof target) => { t.endpoints[0]!.path = "https://other.example/bootstrap"; },
+    (t: typeof target) => { t.endpoints[0]!.path = "/bootstrap?session=unreviewed"; },
+    (t: typeof target) => { t.endpoints[0]!.path = "/bootstrap/{id}"; },
+    (t: typeof target) => { t.endpoints[0]!.objectRef = { kind: "session", param: "id", ownership: "user" }; },
+    (t: typeof target) => { t.endpoints.push(t.endpoints[0]!); },
+    (t: typeof target) => { t.endpoints[2]!.sessionReplay!.fixation!.bootstrapEndpointId = "missing"; },
+    (t: typeof target) => { Object.assign(t.endpoints[2]!.sessionReplay!.fixation!, { issuesAnonymousSession: false }); },
+  ]) { const invalid = structuredClone(target); change(invalid); expect(TargetModelSchema.safeParse(invalid).success).toBe(false); }
+});
