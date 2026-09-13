@@ -57,3 +57,28 @@ invalidates the shared identity cache. Cleanup still obeys cancellation and
 budgets; interrupted login, failed logout or a vulnerable server may leave a
 test session active. Operators must clean up the disposable account afterward.
 Clearing a browser cookie is not proof of server-side revocation.
+
+## Standard probe
+
+Set `include: [auth/session-replay]` in the scan config, then run
+`perimeter scan --config scan.yaml --allow-mutating`.
+Without write opt-in, the probe is skipped before login or fixture setup.
+Checkpoint/resume is not supported for this mutating check; session-cookie replay
+is unrelated to resuming a saved scan.
+
+`auth/session-replay` reserves eight requests per reviewed endpoint: anonymous
+read, login, authenticated read, logout, old-cookie replay, distinct fresh login,
+fresh-session read, and cleanup logout. It uses at most 40 requests per probe.
+Both login sessions must return the expected account marker, and anonymous access
+must be explicitly denied. Logins and cleanup are audited; findings include the
+five comparison/control exchanges without credentials.
+
+Matching protected data after acknowledged logout is HIGH/FIRM (CWE-613), even
+if the replay carries an error status. A pass requires 401/403 without the selected
+scalar and successful positive controls. Redirects, HTML, cached/redacted/partial
+evidence, changed markers, unsuccessful logout, reused cookies, and broken fresh
+logins never yield a pass. A pass is not proof that all sessions, endpoints, or
+revocation mechanisms are secure. The operator must verify that the configured
+success status really acknowledges logout, not a generic fallback response.
+The CWE-613 mapping also requires review: [MITRE's mapping notes](https://cwe.mitre.org/data/definitions/613.html)
+distinguish logout invalidation from the entry's original timeout-expiration scope.

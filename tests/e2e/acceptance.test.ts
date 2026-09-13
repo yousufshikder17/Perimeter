@@ -145,6 +145,8 @@ describe("§8 acceptance scenario (end-to-end)", () => {
       probeId: "ssrf/webhook-destination", reason: 'no endpoint provides capability "webhookCallback"',
     }, {
       probeId: "auth/role-access", reason: 'no endpoint provides capability "roleAccess"',
+    }, {
+      probeId: "auth/session-replay", reason: 'no endpoint provides capability "sessionReplay"',
     }]);
   });
 });

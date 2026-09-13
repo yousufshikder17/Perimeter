@@ -21,6 +21,14 @@ budget and before waiting on the rate limiter.
 
 ## Enforcement layers
 
+The engine also owns a narrow [disposable-session lifecycle](session-replay.md).
+With explicit mutating authorization and a reviewed dedicated-account contract,
+it can log in, read one protected GET, and POST current-session-only logout.
+Only freshly obtained cookies are used, frozen for replay and never exposed by
+the session handle. These exact authentication URLs are permitted on that
+engine-owned client only; generic HTTP writes still require scratch bindings.
+Logout cleanup obeys budgets and cancellation, and may require operator follow-up.
+
 1. **Type system** — `ProbeContext` exposes no raw network, clock, or RNG.
 2. **Linter** — `perimeter probe lint` statically rejects `fetch`, `undici`,
    `Math.random`, `Date.now`, and evidence-less findings (spec §3.4).

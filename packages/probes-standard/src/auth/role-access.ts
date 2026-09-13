@@ -1,5 +1,6 @@
 import { skip, type GuardedResponse, type Probe } from "@perimeter/sdk";
 import { buildFinding } from "../_shared/findings.js";
+import { observeJson } from "../_shared/json-observation.js";
 
 export const roleAccess: Probe = {
   manifest: { id: "auth/role-access", family: "auth", version: "0.1.0", schemaVersion: "1",
@@ -61,13 +62,6 @@ export const roleAccess: Probe = {
 
 async function observe(response: GuardedResponse, path: string[]): Promise<{ value: string | number | undefined } | undefined> {
   try {
-    const text = await response.text();
-    if (text !== response.exchange.response.body || Number(response.headers.age ?? 0) > 0 ||
-        !/^application\/json(?:\s*;|$)/i.test(response.headers["content-type"] ?? "")) return undefined;
-    let value: unknown = JSON.parse(text);
-    for (const key of path) value = value !== null && typeof value === "object" && Object.hasOwn(value, key)
-      ? (value as Record<string, unknown>)[key] : undefined;
-    return { value: typeof value === "string" && value.trim() && !value.includes("«redacted»") && !value.includes("«truncated»") ? value :
-      typeof value === "number" && Number.isFinite(value) ? value : undefined };
+    return (await response.text()) === response.exchange.response.body ? observeJson(response.exchange, path) : undefined;
   } catch { return undefined; }
 }

@@ -34,7 +34,7 @@ surface — and complement, rather than replace, a DAST.
   vulnerability class shares one lifecycle contract. Contributor experience is a
   first-class concern.
 - **Safe by construction** — read-only by default; explicitly enabled write
-  probes target engine-created scratch records only. Rate-limited and audited. Destructive
+  probes target engine-created scratch records or reviewed disposable-session lifecycles. Rate-limited and audited. Destructive
   capability is not a flag you can flip in core.
 - **Extensible architecture** — the engine, SDK, CLI, and probe library share
   explicit contracts so new capabilities can be added without bypassing safety.
@@ -92,6 +92,7 @@ See [CSV export checks](./docs/csv.md) and [mass-assignment checks](./docs/mass-
 for required annotations, evidence boundaries and opt-in behavior.
 See also [unary gRPC](./docs/grpc.md) and [owned SSRF/webhook checks](./docs/ssrf.md).
 For same-tenant user-to-admin boundaries, see [role authorization checks](./docs/role-access.md).
+For reviewed logout and original-cookie replay, see [session invalidation checks](./docs/session-replay.md).
 
 ## Safety, in one line
 
