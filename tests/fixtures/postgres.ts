@@ -9,12 +9,22 @@ const require = createRequire(new URL("../../apps/reference-target/package.json"
 export const pg = require("pg") as typeof pgType;
 export const postgresEnabled = process.env.PERIMETER_TEST_POSTGRES === "1";
 
+export function postgresContainerOptions(env = process.env) {
+  const runtime = env.PERIMETER_CONTAINER_RUNTIME ?? "docker";
+  const image = env.PERIMETER_POSTGRES_IMAGE ?? "postgres:17-alpine";
+  if (!["docker", "podman"].includes(runtime) || !/^postgres:(17|18)-alpine$/.test(image)) {
+    throw new Error("Unsupported PostgreSQL test runtime or image");
+  }
+  return { runtime, image };
+}
+
 /** New disposable cluster, loopback-only port, no volumes. No existing database is touched. */
 export async function postgresFixture() {
+  const { runtime, image } = postgresContainerOptions();
   const name = "perimeter-pg-" + randomUUID();
   const password = randomUUID();
   const docker = (...args: string[]) =>
-    execFileSync("docker", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+    execFileSync(runtime, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   docker(
     "run",
     "--detach",
@@ -25,7 +35,7 @@ export async function postgresFixture() {
     "127.0.0.1::5432",
     "-e",
     "POSTGRES_PASSWORD=" + password,
-    "postgres:17-alpine",
+    image,
   );
   let admin: InstanceType<typeof pg.Client> | undefined;
   try {

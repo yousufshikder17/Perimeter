@@ -56,3 +56,13 @@ only that live test is skipped; the memory regression runs normally.
 
 Reference: [PostgreSQL row security](https://www.postgresql.org/docs/current/ddl-rowsecurity.html).
 Missing policies with RLS enabled deny access; they do not inherently leak rows.
+
+## Continuous PostgreSQL coverage
+
+The postgres CI workflow runs the live suite on PostgreSQL 17 and 18 for every
+push and pull request, with the opt-in enabled explicitly. Locally run
+`PERIMETER_TEST_POSTGRES=1 pnpm test:postgres`. Set
+`PERIMETER_POSTGRES_IMAGE=postgres:18-alpine` to select 18, or
+`PERIMETER_CONTAINER_RUNTIME=podman` to use Podman. Only those reviewed images
+and Docker/Podman executables are accepted. Manual PostgreSQL use through the
+runtime connection URL is unchanged.

@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { createApp } from "../../apps/reference-target/dist/server.js";
 import { Store } from "../../apps/reference-target/dist/store.js";
 import { PostgresStore } from "../../apps/reference-target/dist/postgres-store.js";
-import { postgresEnabled, postgresFixture } from "../fixtures/postgres.js";
+import { postgresEnabled, postgresFixture, postgresContainerOptions } from "../fixtures/postgres.js";
+
+it("limits live fixture execution to the reviewed runtimes and PostgreSQL images", () => {
+  expect(postgresContainerOptions({})).toEqual({ runtime: "docker", image: "postgres:17-alpine" });
+  expect(postgresContainerOptions({ PERIMETER_CONTAINER_RUNTIME: "podman", PERIMETER_POSTGRES_IMAGE: "postgres:18-alpine" }).runtime).toBe("podman");
+  expect(() => postgresContainerOptions({ PERIMETER_CONTAINER_RUNTIME: "arbitrary-command" })).toThrow();
+  expect(() => postgresContainerOptions({ PERIMETER_POSTGRES_IMAGE: "unreviewed/image" })).toThrow();
+});
 
 const patched = { crossTenantRead: false, idor: false, missingAuth: false, noRateLimit: false };
 const auth = (tenant: string, user: string) => ({ authorization: "Bearer " + tenant + ":" + user });

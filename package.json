@@ -14,6 +14,7 @@
     "clean": "tsc --build --clean && rimraf \"packages/*/dist\" \"apps/*/dist\"",
     "typecheck": "tsc --build --dry",
     "test": "vitest run",
+    "test:postgres": "vitest run tests/e2e/postgres",
     "test:watch": "vitest",
     "test:safety": "vitest run --project safety",
     "lint": "eslint .",

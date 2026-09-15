@@ -1,0 +1,26 @@
+name: postgres
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  live-rls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [17, 18]
+    env:
+      PERIMETER_TEST_POSTGRES: "1"
+      PERIMETER_POSTGRES_IMAGE: postgres:${{ matrix.version }}-alpine
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: docker pull "$PERIMETER_POSTGRES_IMAGE"
+      - run: pnpm test:postgres
