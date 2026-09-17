@@ -76,6 +76,7 @@ async function runWorker(config: IsolatedProbeConfig, ctx: ProbeContext): Promis
         .flatMap((kind) => ctx.fixtures.ofKind(kind)).filter((fixture) => allowedIdentities.has(fixture.ownerIdentity));
       const start = {
         type: "start", version: ISOLATED_PROTOCOL_VERSION, probeId: config.manifest.id,
+        options: ctx.options ?? {},
         seed: String(ctx.rng.int(0, 0x100000000)),
         target: { name: ctx.target.name, baseUrl: ctx.target.baseUrl, tenancy: ctx.target.tenancy,
           endpoints: ctx.target.endpoints.map((endpoint) => Object.fromEntries(Object.entries(endpoint).filter(([key]) => key !== "fixture"))),

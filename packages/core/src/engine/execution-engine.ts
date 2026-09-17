@@ -4,6 +4,7 @@ import { SafetyGuard } from "../safety/guard.js";
 import { RateLimiter } from "../safety/rate-limiter.js";
 import { MutableBudget } from "../runtime/budget.js";
 import { CheckpointError } from "../runtime/checkpoint.js";
+import { resolveProbeOptions } from "../config/probe-options.js";
 import { DeterministicRng } from "../runtime/rng.js";
 import { GuardedHttpClientImpl } from "../http/guarded-http-client.js";
 import { GuardedGrpcClientImpl } from "../grpc/client.js";
@@ -46,13 +47,15 @@ export interface EngineDeps {
 
 export class ExecutionEngine {
   readonly #d: EngineDeps;
+  #options = new Map<string, Readonly<Record<string, unknown>>>();
 
   constructor(deps: EngineDeps) {
     this.#d = deps;
   }
 
   /** Execute all applicable probes, respecting the concurrency bound. */
-  async run(probes: Probe[]): Promise<void> {
+  async run(probes: Probe[], validatedOptions?: Map<string, Readonly<Record<string, unknown>>>): Promise<void> {
+    this.#options = validatedOptions ?? await resolveProbeOptions(probes);
     if (probes.some((probe) => probe.manifest.isolation === "subprocess" && !isManagedIsolatedProbe(probe))) {
       throw new IsolatedProbeError("Subprocess probes must use the declarative isolatedProbes runner, not host imports");
     }
@@ -180,6 +183,7 @@ export class ExecutionEngine {
     });
 
     return { cleanup: () => sessions.cleanup(), ctx: {
+      options: this.#options.get(probe.manifest.id) ?? Object.freeze({}),
       target: this.#d.target,
       http,
       sessions: { open: (endpointId) => sessions.open(endpointId), prepareFixation: (endpointId) => sessions.prepareFixation(endpointId) },

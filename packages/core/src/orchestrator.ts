@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import type { FindingRegistry, Probe, TargetModel } from "@perimeter/sdk";
 import type { ScanConfig } from "./config/scan-config.js";
+import { resolveProbeOptions } from "./config/probe-options.js";
 import { loadTargetModel } from "./target/loader.js";
 import { IdentityManager } from "./identity/identity-manager.js";
 import { loadAuthHook } from "./identity/auth-hook.js";
@@ -59,6 +60,7 @@ export class Orchestrator {
         return false;
       });
     }
+    const probeOptions = await resolveProbeOptions(this.#probes, this.#config.probeOptions, selection.applicable);
     let checkpoint: ScanCheckpoint | undefined;
     if (this.#config.checkpoint) {
       if (selection.applicable.some((p) => p.manifest.safety.class !== "read-only" || p.manifest.safety.destructive)) {
@@ -81,13 +83,13 @@ export class Orchestrator {
       }, { scanId: ulid(), seed: this.#config.seed ?? randomBytes(8).toString("hex"), startedAt: new Date().toISOString() });
     }
     try {
-      return await this.#execute(target, selection, checkpoint);
+      return await this.#execute(target, selection, probeOptions, checkpoint);
     } finally {
       await checkpoint?.release();
     }
   }
 
-  async #execute(target: TargetModel, selection: Selection, checkpoint?: ScanCheckpoint): Promise<FindingRegistry> {
+  async #execute(target: TargetModel, selection: Selection, probeOptions: Map<string, Readonly<Record<string, unknown>>>, checkpoint?: ScanCheckpoint): Promise<FindingRegistry> {
     const logger = this.#opts.logger ?? new ConsoleLogger("info");
     const clock = this.#opts.clock ?? new SystemClock();
     const scanId = checkpoint?.state.scanId ?? ulid();
@@ -181,7 +183,7 @@ export class Orchestrator {
     });
 
     try {
-      await engine.run(selection.applicable.filter((p) => !completed.has(p.manifest.id)));
+      await engine.run(selection.applicable.filter((p) => !completed.has(p.manifest.id)), probeOptions);
     } finally {
       await fixtures.teardownAll();
     }

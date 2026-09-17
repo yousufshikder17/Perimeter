@@ -17,6 +17,7 @@ import { DeterministicRng } from "../runtime/rng.js";
 import { VirtualClock } from "../runtime/clock.js";
 import { ConsoleLogger } from "../runtime/logger.js";
 import { MutableBudget } from "../runtime/budget.js";
+import { validateProbeOptions } from "../config/probe-options.js";
 
 /**
  * Probe test harness (spec §3.4). A recorded-target fixture mode: a probe runs
@@ -32,6 +33,7 @@ export interface RecordedExchange {
 }
 
 export interface HarnessOptions {
+  probeOptions?: Record<string, unknown>;
   target: TargetModel;
   fixtures: RecordedExchange[];
   /** Scratch objects the engine would have provisioned (spec §4.3), exposed to the probe via ctx.fixtures. */
@@ -56,6 +58,7 @@ export async function runProbeAgainstFixtures(
 
   const http = new RecordedHttpClient(opts.fixtures, requests);
   const ctx: ProbeContext = {
+    options: await validateProbeOptions(probe, opts.probeOptions),
     target: opts.target,
     http,
     fixtures: fixtureView(opts.scratchObjects ?? []),

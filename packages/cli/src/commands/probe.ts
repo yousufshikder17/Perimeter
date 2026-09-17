@@ -37,7 +37,7 @@ export class ProbeNewCommand extends Command {
     const files: Array<{ file: string; text: string }> = await Promise.all(assets.map(async ([template, file]) => ({ file,
       text: (await readFile(join(TEMPLATES_DIR, template), "utf8")).replaceAll("__FAMILY__", family).replaceAll("__ID__", this.ref) })));
     files.push({ file: "package.json", text: JSON.stringify({ name: `perimeter-probe-${family}-${name}`, private: true, type: "module",
-      scripts: { build: "tsc --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck --types node --outDir dist probe.ts manifest.ts probe.test.ts",
+      scripts: { build: "tsc --target ES2022 --module NodeNext --moduleResolution NodeNext --resolveJsonModule --strict --skipLibCheck --types node --outDir dist probe.ts manifest.ts probe.test.ts",
         test: "npm run build && node --test dist/probe.test.js" } }, null, 2) + "\n" });
     await mkdir(resolve(this.dir), { recursive: true });
     const root = await realpath(resolve(this.dir));
