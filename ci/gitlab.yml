@@ -1,0 +1,29 @@
+# Include in a trusted pipeline containing a reviewed Perimeter source checkout.
+perimeter:
+  stage: test
+  image: node:24-bookworm-slim
+  variables:
+    PERIMETER_SCAN_CONFIG: perimeter.scan.yaml
+  rules:
+    - if: '$CI_COMMIT_REF_PROTECTED == "true"'
+      when: manual
+    - when: never
+  allow_failure: false
+  timeout: 15m
+  before_script:
+    - corepack pnpm install --frozen-lockfile
+    - corepack pnpm build
+  script:
+    - node ci/run-scan.mjs
+  artifacts:
+    when: always
+    access: developer
+    expire_in: 7 days
+    paths:
+      - .perimeter-ci/findings.json
+      - .perimeter-ci/report.md
+      - .perimeter-ci/report.html
+      - .perimeter-ci/report.sarif
+      - .perimeter-ci/report.junit.xml
+    reports:
+      junit: .perimeter-ci/report.junit.xml

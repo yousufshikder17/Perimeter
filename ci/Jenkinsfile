@@ -1,0 +1,34 @@
+// Trusted job only: restrict who can modify this pipeline and access artifacts.
+pipeline {
+  agent { label 'perimeter' }
+  options {
+    timeout(time: 15, unit: 'MINUTES')
+    disableConcurrentBuilds()
+    skipDefaultCheckout(true)
+    buildDiscarder(logRotator(numToKeepStr: '20', artifactDaysToKeepStr: '7'))
+  }
+  environment { PERIMETER_SCAN_CONFIG = 'perimeter.scan.yaml' }
+  stages {
+    stage('Checkout') {
+      steps { deleteDir(); checkout scm }
+    }
+    stage('Build Perimeter') {
+      steps {
+        sh 'corepack pnpm install --frozen-lockfile'
+        sh 'corepack pnpm build'
+      }
+    }
+    stage('Authorized scan') {
+      steps {
+        input message: 'Run the reviewed scan against the authorized target?'
+        sh 'node ci/run-scan.mjs'
+      }
+    }
+  }
+  post {
+    always {
+      archiveArtifacts artifacts: '.perimeter-ci/findings.json,.perimeter-ci/report.md,.perimeter-ci/report.html,.perimeter-ci/report.sarif,.perimeter-ci/report.junit.xml', allowEmptyArchive: true
+      junit testResults: '.perimeter-ci/report.junit.xml', allowEmptyResults: true, skipMarkingBuildUnstable: true
+    }
+  }
+}

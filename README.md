@@ -114,6 +114,10 @@ Applies a severity gate, uploads SARIF for inline PR annotations, and supports
 baseline diffing so accepted findings don't break the build. See
 [`action/README.md`](./action/README.md).
 
+For other pipelines, use the reviewed [GitLab/Jenkins templates](./ci/README.md).
+They preserve the CLI gate result and collect a restricted report artifact set;
+no platform plugin or hosted account is required.
+
 Create a baseline only after reviewing the full JSON scan artifact:
 
 ```bash
