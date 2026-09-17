@@ -21,6 +21,8 @@ export const ScanConfigSchema = z
     exclude: z.array(z.string()).default([]),
     /** Directories/packages to load probes from, in addition to the standard lib. */
     probePaths: z.array(z.string()).default([]),
+    /** Non-secret options keyed by exact installed probe ID; validated before traffic. */
+    probeOptions: z.record(z.string().regex(/^[a-z0-9-]+\/[a-z0-9-]+$/), z.record(z.unknown())).default({}),
     /** Declarative external workers; their code is never imported into the host. */
     isolatedProbes: z.array(IsolatedProbeSchema).default([]),
     /** Bounded concurrency for probe execution (spec §4.1). Conservative default. */

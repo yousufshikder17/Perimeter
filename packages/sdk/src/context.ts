@@ -147,6 +147,8 @@ export interface Logger {
 // ---------------------------------------------------------------------------
 
 export interface ProbeContext {
+  /** Validated, deeply frozen non-secret probe options; absent in legacy contexts. */
+  readonly options?: Readonly<Record<string, unknown>>;
   /** Read-only view of the Target Model (spec §5). */
   readonly target: TargetModel;
   /** Engine-owned HTTP transport (spec §3.2 rule 1). */

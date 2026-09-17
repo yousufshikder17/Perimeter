@@ -21,6 +21,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "ajv": "^8.20.0",
     "@grpc/grpc-js": "^1.14.4",
     "@apidevtools/swagger-parser": "^10.1.0",
     "@perimeter/sdk": "workspace:*",

@@ -87,6 +87,9 @@ importers:
       '@perimeter/sdk':
         specifier: workspace:*
         version: link:../sdk
+      ajv:
+        specifier: ^8.20.0
+        version: 8.20.0
       jose:
         specifier: ^5.6.3
         version: 5.10.0

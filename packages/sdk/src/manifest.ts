@@ -87,7 +87,7 @@ export const ProbeManifestSchema = z
     isolation: z.literal("subprocess").optional(),
     requires: ProbeRequiresSchema.default({}),
     safety: ProbeSafetySchema,
-    /** Path to a JSON Schema / Zod config schema, or inline JSON Schema. */
+    /** Local JSON Schema file or inline draft-2020-12 schema; no remote references. */
     configSchema: z.union([z.string(), z.record(z.unknown())]).optional(),
   })
   .strict();
