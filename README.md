@@ -14,7 +14,8 @@ From one declarative Target Model and a library of probes, you get **findings**:
 structured, evidence-backed vulnerability reports (Markdown + JSON, with SARIF and
 JUnit), gated into CI/CD — safe, rate-limited, and fully audited by construction.
 
-> Status: **Draft v0.1** scaffold under active development. See
+> Status: **Local/CI scanner under active development**, with bounded probe
+> contracts. Hosted services remain future work. See
 > [`docs/`](./docs/README.md) for the public architecture and usage documentation.
 
 ---
