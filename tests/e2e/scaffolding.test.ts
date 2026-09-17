@@ -25,14 +25,14 @@ it("generates a typechecked, fixture-tested loadable package from the shipped CL
     const scaffold = join(output, "diagnostics", "1-read");
     expect((await readdir(scaffold)).sort()).toEqual(generatedFiles);
     const schema = JSON.parse(await readFile(join(scaffold, "config.schema.json"), "utf8"));
-    expect(schema).toMatchObject({ title: "diagnostics/1-read configuration", type: "object", properties: {}, additionalProperties: false });
+    expect(schema).toMatchObject({ title: "diagnostics/1-read configuration", type: "object", properties: { endpointId: { type: "string" } }, additionalProperties: false });
     const pkg = JSON.parse(await readFile(join(scaffold, "package.json"), "utf8"));
     expect(pkg).toMatchObject({ private: true, type: "module" });
     // Exercise the actual generated build/test script under the same pnpm as CI.
     const pnpm = process.env.npm_execpath;
     if (!pnpm) throw new Error("Run scaffold integration through pnpm test so the package runner is available");
     const tested = await execute(process.execPath, [pnpm, "--dir", scaffold, "test"]);
-    expect(tested.stdout).toMatch(/pass 3/);
+    expect(tested.stdout).toMatch(/pass 4/);
     await execute(process.execPath, [cli, "probe", "lint", scaffold]);
     const address = server.address(); if (!address || typeof address === "string") throw new Error("No address");
     const target = { name: "scaffold-live", baseUrl: `http://127.0.0.1:${address.port}`, auth: { scheme: "bearer" },
@@ -43,6 +43,7 @@ it("generates a typechecked, fixture-tested loadable package from the shipped CL
     const json = join(directory, "findings.json");
     const scan = join(directory, "scan.json"); await writeFile(scan, JSON.stringify({ target: targetPath,
       probePaths: [join(scaffold, "dist/probe.js")], include: ["diagnostics/1-read"],
+      probeOptions: { "diagnostics/1-read": { endpointId: "health" } },
       output: { json, markdown: join(directory, "report.md"), auditLog: join(directory, "audit.ndjson") }, failOn: "none" }));
     expect(calls).toBe(0);
     await execute(process.execPath, [cli, "scan", "--config", scan]).catch((error) => { throw new Error(`${error.stdout}\n${error.stderr}`); });
@@ -57,6 +58,21 @@ it("generates a typechecked, fixture-tested loadable package from the shipped CL
     await writeFile(scan, JSON.stringify(scoped));
     await execute(process.execPath, [join(bundle, "dist/bin.js"), "scan", "--config", scan]).catch((error) => { throw new Error(`${error.stdout}\n${error.stderr}`); });
     expect(calls).toBe(2);
+    scoped.probeOptions = { "diagnostics/1-read": { typo: "private-option-canary" } };
+    await writeFile(scan, JSON.stringify(scoped));
+    const failure = await execute(process.execPath, [join(bundle, "dist/bin.js"), "scan", "--config", scan]).then(() => null, error => error);
+    expect(failure).not.toBeNull(); expect(failure.stdout + failure.stderr).not.toContain("private-option-canary");
+    expect(calls).toBe(2);
+    // Older packages may still point at a package-relative JSON schema file.
+    await writeFile(join(installed, "legacy.js"), `import { probe } from './probe.js'; export const perimeter = { probes: [{ ...probe, manifest: { ...probe.manifest, configSchema: 'config.schema.json' } }] };`);
+    await writeFile(join(installed, "package.json"), JSON.stringify({ name: "@scaffold/example", type: "module", exports: "./legacy.js" }));
+    scoped.probeOptions = { "diagnostics/1-read": { endpointId: "health" } };
+    await writeFile(scan, JSON.stringify(scoped));
+    await execute(process.execPath, [join(bundle, "dist/bin.js"), "scan", "--config", scan]);
+    expect(calls).toBe(3);
+    await rm(join(installed, "config.schema.json"));
+    await expect(execute(process.execPath, [join(bundle, "dist/bin.js"), "scan", "--config", scan])).rejects.toThrow();
+    expect(calls).toBe(3);
   } finally { server.closeAllConnections(); await new Promise<void>((done) => server.close(() => done())); await rm(directory, { recursive: true, force: true }); }
 });
 

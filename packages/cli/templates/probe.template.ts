@@ -12,7 +12,7 @@ import { manifest } from "./manifest.js";
 export const probe: Probe = {
   manifest,
   async plan(ctx) {
-    const endpoint = ctx.target.endpoints.find((e) => e.method === "GET" && e.auth === "none" &&
+    const endpoint = ctx.target.endpoints.find((e) => (!ctx.options?.endpointId || e.id === ctx.options.endpointId) && e.method === "GET" && e.auth === "none" &&
       !e.graphql && !e.grpc && !e.webhook && !e.csv && !e.objectRef && !e.creates && /^\/(?!\/)[^?#{}\\]*$/.test(e.path) &&
       new URL(e.path, ctx.target.baseUrl).pathname === e.path);
     if (!endpoint) return skip("no explicitly public literal REST GET for the diagnostic starter");

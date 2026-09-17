@@ -40,3 +40,15 @@ test("skips missing or protected endpoints without network activity", async () =
     assert.deepEqual(result.reports, []);
   }
 });
+
+test("selects the configured modeled endpoint and refuses unknown options", async () => {
+  const configured = { ...target, endpoints: [...target.endpoints, { ...target.endpoints[0]!, id: "ready", path: "/ready" }] };
+  const result = await runProbeAgainstFixtures(probe, { target: configured, probeOptions: { endpointId: "ready" }, fixtures: [
+    { match: { method: "GET", urlIncludes: "/ready" }, respond: { status: 200 } },
+  ] });
+  assert.equal(result.requests[0]?.url, "/ready");
+  await assert.rejects(runProbeAgainstFixtures(probe, { target, fixtures: [], probeOptions: { typo: true } }), /Invalid options/);
+  const missing = await runProbeAgainstFixtures(probe, { target, fixtures: [], probeOptions: { endpointId: "missing" } });
+  assert.deepEqual(missing.requests, []);
+  assert.match(missing.skipped ?? "", /no explicitly public/);
+});

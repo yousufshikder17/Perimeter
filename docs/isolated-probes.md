@@ -86,6 +86,12 @@ arguments without requiring a daemon; it does not substitute for this live test.
 
 ## Trusted local execution and manual/custom launchers
 
+The protocol v1 `start` message also contains `options`, an object validated by
+the host against the manifest's `configSchema` before any worker starts. It uses
+the same exact-ID `probeOptions` scan mapping as in-process probes. Existing
+workers can ignore this additive field. Options are non-secret data, not
+credentials or permission overrides. See [custom probe options](probe-options.md).
+
 Use the same manifest with:
 
 ```yaml

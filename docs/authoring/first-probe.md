@@ -18,8 +18,8 @@ Each invocation creates a new `probes/<family>/<name>/` package containing:
 
 - `probe.ts`: typed read-only lifecycle and `perimeter.probes` loader export.
 - `manifest.ts`: pure probe identity, requirements, budget and schema reference.
-- `config.schema.json`: strict JSON Schema for the starter's empty options.
-- `probe.test.ts`: three runnable recorded-fixture checks using Node's test runner.
+- `config.schema.json`: strict JSON Schema for the optional modeled `endpointId`.
+- `probe.test.ts`: four runnable recorded-fixture checks using Node's test runner.
 - `package.json`: private ESM package with build/test scripts.
 
 The test script typechecks/compiles the sources into `dist/`, then runs the
@@ -39,6 +39,9 @@ In a scan config with an authorized Target Model:
 ```yaml
 probePaths: [./probes/diagnostics/my-check/dist/probe.js]
 include: [diagnostics/my-check]
+probeOptions:
+  diagnostics/my-check:
+    endpointId: health
 ```
 
 `probePaths` file paths are relative to the scan process's working directory.
@@ -61,10 +64,12 @@ integration test when the behavior depends on credentials, fixtures, capture,
 or lifecycle wiring. The standard [role-access probe](../role-access.md) shows
 why a successful HTTP status alone is not authorization evidence.
 
-The empty config schema is a declared authoring contract. The current runtime
-does not automatically supply or validate arbitrary per-probe options; do not
-add options and imply they are wired without implementing their configuration
-path. No new configuration framework is generated for an option-free starter.
+The runtime validates options against the manifest's JSON Schema before traffic
+and provides the frozen result as `ctx.options` in both lifecycle phases. Omit
+`endpointId` to keep first-applicable-endpoint behavior. The generated manifest
+imports the schema as data, and its build copies the JSON into `dist/`.
+Use `probeOptions` in the recorded-fixture harness to test custom settings.
+See [custom probe options](../probe-options.md) for limits and package loading.
 
 Run the generated tests and probe lint again before sharing the probe. See the
 [authoring contract](README.md) and [finding schema](../finding-schema.md).
