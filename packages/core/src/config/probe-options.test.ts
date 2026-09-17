@@ -30,13 +30,14 @@ it("rejects ambiguous/non-JSON/oversized options and unsafe or remote schemas", 
     await expect(validateProbeOptions(probe, input)).rejects.toThrow("Invalid options");
   }
   for (const configSchema of [{ type: "bogus" }, { $ref: "https://example.invalid/schema" },
-    { $async: true, type: "object" }, "https://example.invalid/schema.json", { type: "object", unknownKeyword: true }]) {
+    { $async: true, type: "object" }, "https://example.invalid/schema.json", "//example.invalid/schema.json", { type: "object", unknownKeyword: true }]) {
     await expect(validateProbeOptions({ ...probe, manifest: { ...probe.manifest, configSchema } })).rejects.toThrow("Invalid options");
   }
 });
 
 it("rejects unknown IDs, duplicate IDs and options for probes without schemas; permits legacy empty options", async () => {
-  const { configSchema: _schema, ...manifest } = probe.manifest;
+  const manifest = { ...probe.manifest };
+  delete manifest.configSchema;
   const legacy = { ...probe, manifest };
   expect(await validateProbeOptions(legacy)).toEqual({});
   await expect(validateProbeOptions(legacy, { extra: true })).rejects.toThrow();

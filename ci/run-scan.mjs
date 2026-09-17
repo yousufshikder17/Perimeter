@@ -15,6 +15,8 @@ export async function runCiScan(configPath, cwd = process.cwd()) {
   await mkdir(outputDirectory, { recursive: true });
   if (!(await lstat(outputDirectory)).isDirectory() || (await lstat(outputDirectory)).isSymbolicLink()) throw new Error("CI output directory must not be a link");
   const paths = [...artifactNames, "audit.ndjson"].map(name => join(outputDirectory, name));
+  const pathKey = path => process.platform === "win32" ? resolve(cwd, path).toLowerCase() : resolve(cwd, path);
+  const reserved = new Set(paths.map(pathKey));
   // Remove only our known outputs, so a failed new scan cannot publish old findings.
   // Refuse aliases/directories instead of following them or deleting recursively.
   for (const path of paths) {
@@ -22,10 +24,10 @@ export async function runCiScan(configPath, cwd = process.cwd()) {
     if (stat && (!stat.isFile() || stat.isSymbolicLink())) throw new Error("CI output file must be a regular file");
   }
   const resolvedConfig = resolve(cwd, configPath);
-  if (paths.includes(resolvedConfig)) throw new Error("CI config must be outside reserved output paths");
+  if (reserved.has(pathKey(resolvedConfig))) throw new Error("CI config must be outside reserved output paths");
   // Read the input before removing output files, but do not log its contents.
   const input = await readConfigFile(resolvedConfig).catch(() => null);
-  if (input && [input.target, input.baseline, input.checkpoint].some(path => typeof path === "string" && paths.includes(resolve(cwd, path)))) throw new Error("CI inputs must be outside reserved output paths");
+  if (input && [input.target, input.baseline, input.checkpoint].some(path => typeof path === "string" && reserved.has(pathKey(path)))) throw new Error("CI inputs must be outside reserved output paths");
   for (const path of paths) await unlink(path).catch(error => { if (error.code !== "ENOENT") throw error; });
   const config = parseScanConfig(input);
   if (config.checkpoint || config.resume) throw new Error("CI templates run fresh scans; checkpoint replay is not supported");

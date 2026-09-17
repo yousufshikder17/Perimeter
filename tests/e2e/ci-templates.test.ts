@@ -60,6 +60,14 @@ remediation: { guidance: 'Fixture only', references: [] }, status: 'open', first
     expect(JSON.parse(await readFile(join(output, "findings.json"), "utf8")).findings).toHaveLength(1);
     await writeFile(configPath, JSON.stringify({ ...config, failOn: "none" }));
     expect(await run()).toBe(0); expect(calls).toBe(2);
+    const original = await readFile(join(output, "findings.json"), "utf8");
+    const alias = process.platform === "win32" ? ".PERIMETER-CI/FINDINGS.JSON" : ".perimeter-ci/findings.json";
+    await writeFile(configPath, JSON.stringify({ ...config, target: alias }));
+    expect(await run()).toBe(1); expect(calls).toBe(2);
+    expect(await readFile(join(output, "findings.json"), "utf8")).toBe(original);
+    await writeFile(configPath, JSON.stringify({ ...config, checkpoint: "checkpoint.json" }));
+    expect(await run()).toBe(1); expect(calls).toBe(2);
+    expect(await readdir(output)).toEqual([]);
     await writeFile(join(output, "unrelated.txt"), "keep");
     await writeFile(configPath, "invalid-json-secret-canary");
     expect(await run()).toBe(1); expect(calls).toBe(2);

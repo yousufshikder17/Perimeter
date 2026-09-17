@@ -40,7 +40,7 @@ export async function validateProbeOptions(probe: Probe, input: unknown = {}): P
     let schema: unknown = declared;
     if (typeof declared === "string") {
       // CLI resolves package-relative paths; programmatic callers use cwd-relative files.
-      if (/^[a-z][a-z0-9+.-]*:\/\//i.test(declared)) throw new Error("Local schemas only");
+      if (/^[a-z][a-z0-9+.-]*:\/\//i.test(declared) || /^[\\/]{2}/.test(declared)) throw new Error("Local schemas only");
       const file = await readFile(declared);
       if (file.length > 65536) throw new Error("Schema limit");
       schema = JSON.parse(file.toString("utf8"));

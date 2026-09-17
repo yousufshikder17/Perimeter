@@ -20,7 +20,7 @@ export async function loadProbes(extraPaths: string[]): Promise<Probe[]> {
       if (typeof probe.manifest.configSchema !== "string") { probes.push(probe); continue; }
       try {
         const schemaPath = probe.manifest.configSchema;
-        if (/^[a-z][a-z0-9+.-]*:\/\//i.test(schemaPath)) throw new Error("Local schemas only");
+        if (/^[a-z][a-z0-9+.-]*:\/\//i.test(schemaPath) || /^[\\/]{2}/.test(schemaPath)) throw new Error("Local schemas only");
         const moduleDirectory = dirname(fileURLToPath(packageName ? import.meta.resolve(p) : url));
         let root = moduleDirectory;
         while (true) {
