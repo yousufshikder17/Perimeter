@@ -1,0 +1,8 @@
+{
+  "name": "@perimeter-compat/consumer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": { "types": "./dist/probe.d.ts", "import": "./dist/probe.js" } },
+  "peerDependencies": { "@perimeter/sdk": "0.x" }
+}

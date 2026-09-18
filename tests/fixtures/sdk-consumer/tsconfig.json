@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "skipLibCheck": false,
+    "types": [],
+    "declaration": true,
+    "noEmitOnError": true,
+    "outDir": "dist"
+  },
+  "include": ["probe.ts"]
+}
